@@ -100,14 +100,15 @@ def summarize_search_category(df: pd.DataFrame, search_string: str) -> Tuple[pd.
 def process_search_strings(df, search_strings):
     """
     Process a list of search strings and return a nested dictionary of summed expenses
-    and the remaining dataframe after processing.
+    with unlimited nesting levels and the remaining dataframe after processing.
     
     Parameters:
     -----------
     df : pandas.DataFrame
         The dataframe containing transaction data
     search_strings : list
-        List containing strings and/or dictionaries with category groups
+        List containing strings and/or dictionaries with category groups.
+        Supports unlimited nesting levels.
         
     Returns:
     --------
@@ -116,69 +117,192 @@ def process_search_strings(df, search_strings):
         - dict: Nested dictionary with summed expenses for each search string/category
         - pandas.DataFrame: Remaining dataframe after all transactions have been processed
     """
+    
+    def process_item(item, df_remaining):
+        """
+        Recursively process an item (string or dict) and return results.
+        
+        Parameters:
+        -----------
+        item : str or dict
+            The item to process
+        df_remaining : pandas.DataFrame
+            The dataframe with remaining unprocessed transactions
+            
+        Returns:
+        --------
+        tuple
+            - result: The processed value (float for string, dict for nested structure)
+            - df_remaining: Updated dataframe with processed transactions removed
+        """
+        if isinstance(item, str):
+            # Base case: simple string search
+            df_remaining, amount_spent = summarize_search_category(df_remaining, item)
+            return amount_spent, df_remaining
+            
+        elif isinstance(item, dict):
+            # Recursive case: nested dictionary
+            nested_result = {}
+            
+            for key, value in item.items():
+                if isinstance(value, list):
+                    # Process list of items (can be strings or dicts)
+                    sub_dict = {}
+                    for sub_item in value:
+                        sub_result, df_remaining = process_item(sub_item, df_remaining)
+                        
+                        # Determine the key name for this sub_item
+                        if isinstance(sub_item, str):
+                            sub_key = sub_item
+                        elif isinstance(sub_item, dict):
+                            # For nested dicts, merge the result directly
+                            # This prevents creating extra wrapper levels
+                            if isinstance(sub_result, dict):
+                                sub_dict.update(sub_result)
+                                continue
+                            else:
+                                sub_key = list(sub_item.keys())[0]
+                        
+                        sub_dict[sub_key] = sub_result
+                    
+                    nested_result[key] = sub_dict
+                else:
+                    # Single item (string or dict)
+                    sub_result, df_remaining = process_item(value, df_remaining)
+                    nested_result[key] = sub_result
+            
+            return nested_result, df_remaining
+    
     result = {}
     df_copy = df.copy()  # Create a copy to avoid modifying the original
 
     for item in search_strings:
         if isinstance(item, str):
             # Simple string case
-            remaining_df, amount_spent = summarize_search_category(df_copy, item)
+            amount_spent, df_copy = process_item(item, df_copy)
             result[item] = amount_spent
-            df_copy = remaining_df  # Update df_copy to exclude already processed transactions
             
         elif isinstance(item, dict):
-            # Dictionary case - category group with multiple search strings
+            # Dictionary case - process recursively
             for category_name, search_list in item.items():
-                category_dict = {}
-                
-                for search_string in search_list:
-                    remaining_df, amount_spent = summarize_search_category(df_copy, search_string)
-                    category_dict[search_string] = amount_spent
-                    df_copy = remaining_df  # Update df_copy to exclude already processed transactions
-                
-                result[category_name] = category_dict
+                if isinstance(search_list, list):
+                    category_dict = {}
+                    for search_item in search_list:
+                        sub_result, df_copy = process_item(search_item, df_copy)
+                        
+                        # Determine the key name
+                        if isinstance(search_item, str):
+                            key_name = search_item
+                        elif isinstance(search_item, dict):
+                            # For nested dicts, merge the result directly
+                            if isinstance(sub_result, dict):
+                                category_dict.update(sub_result)
+                                continue
+                            else:
+                                key_name = list(search_item.keys())[0]
+                        
+                        category_dict[key_name] = sub_result
+                    
+                    result[category_name] = category_dict
+                else:
+                    # Single item
+                    sub_result, df_copy = process_item(search_list, df_copy)
+                    result[category_name] = sub_result
+    
     other = df_copy["Amount"].abs().sum()
     result["No Category"] = other
     return result, df_copy
 
 
 def create_sunburst_chart(expense_summary):
-    """Create a sunburst chart from nested expense data."""
-    # Flatten the nested dictionary for plotly
-    data = []
+    """
+    Create a sunburst chart from nested expense data with unlimited nesting levels.
     
-    for key, value in expense_summary.items():
-        if isinstance(value, dict):
-            # Category group with subcategories
-            category_total = sum(value.values())
-            for subkey, subvalue in value.items():
-                data.append({
-                    'category': key,
-                    'subcategory': subkey,
-                    'amount': subvalue,
-                    'labels': subkey,
-                    'parents': key
-                })
-            # Add parent category
-            data.append({
-                'category': key,
-                'subcategory': '',
-                'amount': category_total,
-                'labels': key,
-                'parents': ''
-            })
+    Parameters:
+    -----------
+    expense_summary : dict
+        Nested dictionary with unlimited levels of nesting
+        
+    Returns:
+    --------
+    plotly.graph_objects.Figure
+        Sunburst chart figure
+    """
+    
+    def flatten_nested_dict(data, parent='', result_list=None):
+        """
+        Recursively flatten a nested dictionary into a list of records for plotly sunburst.
+        
+        Parameters:
+        -----------
+        data : dict or float
+            The data to flatten (can be nested dict or numeric value)
+        parent : str
+            The parent label for this level
+        result_list : list
+            Accumulator for results
+            
+        Returns:
+        --------
+        list
+            List of dictionaries with 'labels', 'parents', and 'amount' keys
+        """
+        if result_list is None:
+            result_list = []
+        
+        if isinstance(data, dict):
+            for key, value in data.items():
+                if isinstance(value, dict):
+                    # Nested dictionary - calculate total and recurse
+                    total = calculate_total(value)
+                    
+                    # Add this node
+                    result_list.append({
+                        'labels': key,
+                        'parents': parent,
+                        'amount': total
+                    })
+                    
+                    # Recurse into children
+                    flatten_nested_dict(value, parent=key, result_list=result_list)
+                else:
+                    # Leaf node (numeric value)
+                    result_list.append({
+                        'labels': key,
+                        'parents': parent,
+                        'amount': value
+                    })
+        
+        return result_list
+    
+    def calculate_total(data):
+        """
+        Recursively calculate the total of all numeric values in a nested dictionary.
+        
+        Parameters:
+        -----------
+        data : dict or float
+            The data to sum
+            
+        Returns:
+        --------
+        float
+            Total sum of all leaf values
+        """
+        if isinstance(data, (int, float)):
+            return data
+        elif isinstance(data, dict):
+            return sum(calculate_total(v) for v in data.values())
         else:
-            # Simple category
-            data.append({
-                'category': key,
-                'subcategory': '',
-                'amount': value,
-                'labels': key,
-                'parents': ''
-            })
+            return 0
     
+    # Flatten the nested dictionary
+    data = flatten_nested_dict(expense_summary)
+    
+    # Create DataFrame for plotly
     df_plot = pd.DataFrame(data)
     
+    # Create sunburst chart
     fig = px.sunburst(
         df_plot,
         names='labels',
@@ -197,67 +321,60 @@ def create_sunburst_chart(expense_summary):
 
 def create_expense_table(expense_summary):
     """
-    Convert nested expense dictionary to a formatted DataFrame.
+    Convert nested expense dictionary to a formatted DataFrame showing only top-level categories.
     
     Parameters:
     -----------
     expense_summary : dict
-        Nested dictionary from process_search_strings()
+        Nested dictionary from process_search_strings() with unlimited nesting levels
         
     Returns:
     --------
     pandas.DataFrame
-        Formatted table with Category, Subcategory, and Amount columns
+        Formatted table with Category and Amount columns (top-level only)
     """
+    
+    def calculate_total(data):
+        """
+        Recursively calculate the total of all numeric values in a nested dictionary.
+        
+        Parameters:
+        -----------
+        data : dict or float
+            The data to sum
+            
+        Returns:
+        --------
+        float
+            Total sum of all leaf values
+        """
+        if isinstance(data, dict):
+            return sum(calculate_total(v) for v in data.values())
+        else:
+            # Handle numeric types including numpy types
+            try:
+                return float(data)
+            except (TypeError, ValueError):
+                return 0
+    
     rows = []
     
+    # Process only top-level categories
     for key, value in expense_summary.items():
-        if isinstance(value, dict):
-            # Category group with subcategories
-            category_total = sum(value.values())
-            
-            # Add subcategory rows
-            for subkey, subvalue in value.items():
-                rows.append({
-                    'Category': key,
-                    'Subcategory': subkey,
-                    'Amount': subvalue
-                })
-            
-            # Add category total row
-            rows.append({
-                'Category': key,
-                'Subcategory': 'TOTAL',
-                'Amount': category_total
-            })
-            
-            # Add blank separator row
-            rows.append({
-                'Category': '',
-                'Subcategory': '',
-                'Amount': None
-            })
-        else:
-            # Simple category (no subcategories)
-            rows.append({
-                'Category': key,
-                'Subcategory': '—',
-                'Amount': value
-            })
-    
-    # Remove last blank row if it exists
-    if rows and rows[-1]['Category'] == '':
-        rows.pop()
+        total = calculate_total(value)
+        rows.append({
+            'Category': key,
+            'Amount': total
+        })
     
     df = pd.DataFrame(rows)
     
     # Add grand total row
-    grand_total = df[df['Subcategory'] != 'TOTAL']['Amount'].sum()
+    grand_total = df['Amount'].sum()
     df = pd.concat([
         df,
         pd.DataFrame([{
             'Category': 'GRAND TOTAL',
-            'Subcategory': '',
             'Amount': grand_total
         }])
     ], ignore_index=True)

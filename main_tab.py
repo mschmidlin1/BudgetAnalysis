@@ -228,9 +228,7 @@ def render_main_tab(tab1):
             # Apply custom styling using pandas Styler
             def highlight_rows(row):
                 """Apply styling to specific rows"""
-                if row['Subcategory'] == 'TOTAL':
-                    return ['background-color: #4A90E2; font-weight: bold; color: white'] * len(row)
-                elif row['Category'] == 'GRAND TOTAL':
+                if row['Category'] == 'GRAND TOTAL':
                     return ['background-color: #2E7D32; font-weight: bold; color: white; font-size: 16px'] * len(row)
                 else:
                     return [''] * len(row)
@@ -249,9 +247,8 @@ def render_main_tab(tab1):
                 use_container_width=True,
                 hide_index=True,
                 column_config={
-                    "Category": st.column_config.TextColumn("Category", width="medium"),
-                    "Subcategory": st.column_config.TextColumn("Subcategory", width="medium"),
-                    "Amount": st.column_config.TextColumn("Amount", width="small")
+                    "Category": st.column_config.TextColumn("Category", width="large"),
+                    "Amount": st.column_config.TextColumn("Amount", width="medium")
                 }
             )
             

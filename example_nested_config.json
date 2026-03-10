@@ -1,0 +1,128 @@
+{
+  "search_strings": [
+    {
+      "Transportation": [
+        {
+          "Gas": [
+            "SUNOCO",
+            "SHELL",
+            "EXXON"
+          ]
+        },
+        {
+          "Car Maintenance": [
+            {
+              "Repairs": [
+                "GOODYEAR AUTO",
+                "JIFFY LUBE"
+              ]
+            },
+            {
+              "Tolls": [
+                "EZPASS",
+                "E-Z*PASSNY"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "Shopping": [
+        {
+          "Groceries": [
+            "WEGMANS",
+            "COSTCO"
+          ]
+        },
+        {
+          "General": [
+            "TARGET",
+            "WALMART"
+          ]
+        }
+      ]
+    },
+    {
+      "Pets": [
+        {
+          "Dog": [
+            {
+              "Veterinary": [
+                "VETERINARY",
+                "VCA ANIMAL"
+              ]
+            },
+            {
+              "Supplies": [
+                "HAPPY TAILS",
+                "CHEWY.COM",
+                "PETCO"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "Entertainment": [
+        {
+          "Streaming": [
+            "HULUPLUS",
+            "Netflix",
+            "Disney Plus"
+          ]
+        },
+        {
+          "Gaming": [
+            "STEAMGAMES",
+            "XBOX"
+          ]
+        },
+        {
+          "Music": [
+            "Spotify",
+            "Audible"
+          ]
+        }
+      ]
+    },
+    "AMAZON",
+    "Google",
+    {
+      "Utilities": [
+        "ELMIRA WATER BOARD",
+        "CASELLA WASTE",
+        "EMPIRE TELEPHONE"
+      ]
+    },
+    {
+      "Health": [
+        {
+          "Medical": [
+            "Schweiger Dermatology",
+            "MICHAEL R RIZZONE"
+          ]
+        },
+        {
+          "Pharmacy": [
+            "CVS/PHARMACY",
+            "WALGREENS"
+          ]
+        },
+        {
+          "Fitness": [
+            "YMCA Rochester",
+            "PLANET FITNESS"
+          ]
+        }
+      ]
+    },
+    {
+      "Home": [
+        "LOWES",
+        "HOME DEPOT"
+      ]
+    }
+  ]
+}
