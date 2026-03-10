@@ -1,0 +1,80 @@
+{
+  "search_strings": [
+    {
+      "Gas": [
+        "SUNOCO"
+      ]
+    },
+    {
+      "Shopping": [
+        "WEGMANS",
+        "TARGET",
+        "COSTCO"
+      ]
+    },
+    "AMAZON",
+    "Google",
+    "CORNING SULLIVAN PARK",
+    "CULLIGAN",
+    "YMCA Rochester",
+    {
+      "Car": [
+        "EZPASS",
+        "E-Z*PASSNY",
+        "GOODYEAR AUTO"
+      ]
+    },
+    {
+      "Dog": [
+        "VETERINARY",
+        "HAPPY TAILS",
+        "CHEWY.COM",
+        "PETCO"
+      ]
+    },
+    {
+      "Utilities": [
+        "ELMIRA WATER BOARD",
+        "CASELLA WASTE",
+        "EMPIRE TELEPHONE"
+      ]
+    },
+    {
+      "Streaming/Entertainment": [
+        "HULUPLUS",
+        "Peacock",
+        "Netflix",
+        "PARAMOUNT+",
+        "MAX.COM",
+        "Audible",
+        "Disney Plus",
+        "Spotify",
+        "STEAMGAMES"
+      ]
+    },
+    {
+      "Health": [
+        "Schweiger Dermatology",
+        "MARC T RILEY PT",
+        "CVS/PHARMACY",
+        "MICHAEL R RIZZONE"
+      ]
+    },
+    {
+      "Skiing": [
+        "SKI COMPANY"
+      ]
+    },
+    {
+      "Running": [
+        "CONFLUENCE"
+      ]
+    },
+    {
+      "Home": [
+        "LOWES",
+        "HOME DEPOT"
+      ]
+    }
+  ]
+}

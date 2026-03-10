@@ -205,3 +205,13 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Streamlit uploaded files and config
+uploaded_files/
+upload_config.json
+configs/
+
+# Authentication credentials (IMPORTANT: Keep this secure!)
+credentials.yaml
+
+.vscode/
