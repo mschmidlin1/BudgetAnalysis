@@ -1,0 +1,26 @@
+# Core Web Framework
+streamlit>=1.28.0
+
+# Data Processing
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Visualization
+plotly>=5.17.0
+
+# Authentication
+streamlit-authenticator>=0.2.3
+PyYAML>=6.0
+
+# Code Editor Component
+streamlit-code-editor>=0.1.10
+
+# Additional Dependencies
+IPython>=8.12.0
+huggingface-hub>=0.17.0
+
+# Optional: For Excel export functionality
+openpyxl>=3.1.0
+
+# Optional: For enhanced table display
+tabulate>=0.9.0
