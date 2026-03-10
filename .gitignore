@@ -213,5 +213,12 @@ configs/
 
 # Authentication credentials (IMPORTANT: Keep this secure!)
 credentials.yaml
+credentials.yaml.backup
+
+# Streamlit secrets (contains API keys and tokens)
+.streamlit/secrets.toml
+
+# Google Service Account credentials
+credit-card-analysis-*.json
 
 .vscode/

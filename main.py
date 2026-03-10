@@ -7,8 +7,6 @@ from IPython.display import display
 from pathlib import Path
 import json
 from code_editor import code_editor
-import yaml
-from yaml.loader import SafeLoader
 import streamlit_authenticator as stauth
 
 from login import render_login
@@ -17,19 +15,23 @@ from main_tab import render_main_tab
 from info_tab import render_info_tab
 from sidebar import render_sidebar
 
-from configs import CREDENTIALS_FILE, CONFIGS_FOLDER_NAME
+from configs import CONFIGS_FOLDER_NAME, get_cookie_config
+from user_tools import load_users_dataframe, dataframe_to_config
 
 
-# Load authentication configuration
-with open(CREDENTIALS_FILE) as file:
-    config = yaml.load(file, Loader=SafeLoader)
+# Load authentication configuration from Google Sheets
+users_df = load_users_dataframe()
+config = dataframe_to_config(users_df)
+
+# Get cookie configuration from secrets
+cookie_config = get_cookie_config()
 
 # Create authenticator object
 authenticator = stauth.Authenticate(
     config['credentials'],
-    config['cookie']['name'],
-    config['cookie']['key'],
-    config['cookie']['expiry_days']
+    cookie_config['name'],
+    cookie_config['key'],
+    cookie_config['expiry_days']
 )
 
 # Ensure configs directory exists

@@ -1,5 +1,5 @@
 import streamlit as st
-from user_tools import save_credentials, initialize_user_config
+from user_tools import save_credentials, initialize_user_config, load_users_dataframe, dataframe_to_config
 
 
 def render_login(config, authenticator):
@@ -20,8 +20,17 @@ def render_login(config, authenticator):
                     captcha=False
                 )
                 if email_of_registered_user:
-                    # Save the updated credentials to file
-                    save_credentials(config)
+                    # Reload config from Google Sheets to get the updated user data
+                    users_df = load_users_dataframe()
+                    updated_config = dataframe_to_config(users_df)
+                    
+                    # Merge the new user data from authenticator into config
+                    if username_of_registered_user in config['credentials']['usernames']:
+                        updated_config['credentials']['usernames'][username_of_registered_user] = config['credentials']['usernames'][username_of_registered_user]
+                    
+                    # Save the updated credentials to Google Sheets
+                    save_credentials(updated_config)
+                    
                     # Initialize default configuration for the new user
                     initialize_user_config(username_of_registered_user)
                     st.success('User registered successfully! Please login above.')

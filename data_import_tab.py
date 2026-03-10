@@ -3,6 +3,7 @@ import json
 from code_editor import code_editor
 import pandas as pd
 from pathlib import Path
+import io
 from user_tools import (
     save_credentials,
     get_username,
@@ -18,6 +19,11 @@ from upload_tools import (
     load_uploaded_files,
     delete_uploaded_file,
     clear_all_uploads
+)
+
+from gcs_utils import (
+    download_blob_as_bytes,
+    get_blob_name_for_upload
 )
 
 from config_tools import (
@@ -97,8 +103,17 @@ def render_data_import_tab(tab2):
                     
                     # Load and display file preview
                     try:
-                        file_path = Path(get_user_upload_dir()) / file_name
-                        df = pd.read_csv(file_path)
+                        # Download CSV from GCS
+                        username = get_username()
+                        blob_name = get_blob_name_for_upload(username, file_name)
+                        csv_bytes = download_blob_as_bytes(blob_name)
+                        
+                        if csv_bytes is None:
+                            st.error(f"Could not load {file_name} from cloud storage")
+                            continue
+                        
+                        # Read CSV from bytes
+                        df = pd.read_csv(io.BytesIO(csv_bytes))
                         
                         st.markdown("**File Preview**")
                         st.dataframe(df.head(), use_container_width=True)
