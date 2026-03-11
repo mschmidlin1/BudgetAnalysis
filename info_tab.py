@@ -40,6 +40,10 @@ def render_info_tab(tab):
         st.markdown("""
         ## 🚀 How to Use This App
         
+        > 🎁 **New User?** This app comes with a [`sample_transactions.csv`](sample_transactions.csv:1) file and
+        > [`default_config.json`](default_config.json:1) to help you get started! You can view the sample file
+        > in the Data Import tab to see how the app works, or use your own transaction data right away.
+        
         ### Step 1: Import Your Transaction Data
         
         Navigate to the **📁 Data Import** tab to get started:
