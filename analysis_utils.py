@@ -415,9 +415,7 @@ def display_expense_table(expense_summary, style=True):
                 'text-align': 'right'
             })\
             .apply(lambda x: [
-                'font-weight: bold; background-color: #0977ed' if x['Subcategory'] == 'TOTAL' 
-                else 'background-color: #f0f0f0' if x['Category'] == '' 
-                else 'font-weight: bold; background-color: #034713; font-size: 12pt' if x['Category'] == 'GRAND TOTAL'
+                'font-weight: bold; background-color: #034713; font-size: 12pt' if x.name in df.index and df.loc[x.name, 'Category'] == 'GRAND TOTAL'
                 else ''
                 for _ in x
             ], axis=1)\
@@ -567,9 +565,7 @@ def create_html_report(expense_summary, fig, filename='expense_report.html'):
             'text-align': 'right'
         })\
         .apply(lambda x: [
-            'font-weight: bold; background-color: #4A90E2; color: white' if x['Subcategory'] == 'TOTAL'
-            else 'background-color: #f9f9f9' if x['Category'] == ''
-            else 'font-weight: bold; background-color: #2E7D32; color: white; font-size: 12pt' if x['Category'] == 'GRAND TOTAL'
+            'font-weight: bold; background-color: #2E7D32; color: white; font-size: 12pt' if x.name in df.index and df.loc[x.name, 'Category'] == 'GRAND TOTAL'
             else ''
             for _ in x
         ], axis=1)\
