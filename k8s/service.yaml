@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: budget-analysis
+  namespace: budget-analysis
+spec:
+  type: ClusterIP
+  selector:
+    app: budget-analysis
+  ports:
+    - port: 80
+      targetPort: 8501

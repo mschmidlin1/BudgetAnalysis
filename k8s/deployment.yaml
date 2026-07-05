@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: budget-analysis
+  namespace: budget-analysis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: budget-analysis
+  template:
+    metadata:
+      labels:
+        app: budget-analysis
+    spec:
+      containers:
+        - name: app
+          image: ghcr.io/mschmidlin1/budget-analysis:latest
+          ports:
+            - containerPort: 8501
+          volumeMounts:
+            - name: streamlit-secrets
+              mountPath: /app/.streamlit/secrets.toml
+              subPath: secrets.toml
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /_stcore/health
+              port: 8501
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /_stcore/health
+              port: 8501
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+      volumes:
+        - name: streamlit-secrets
+          secret:
+            secretName: budget-analysis-secrets
+            items:
+              - key: secrets.toml
+                path: secrets.toml

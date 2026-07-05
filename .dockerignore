@@ -1,0 +1,13 @@
+.git
+.venv
+__pycache__
+**/__pycache__
+*.py[cod]
+.streamlit/secrets.toml
+notebooks
+uploaded_files
+configs
+credentials.yaml
+credit-card-analysis-*.json
+.env
+.env.*

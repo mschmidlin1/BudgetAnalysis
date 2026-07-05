@@ -1,0 +1,52 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    env:
+      KUBECONFIG: /home/mike/.kube/config
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Build and push image
+        run: |
+          IMAGE=ghcr.io/mschmidlin1/budget-analysis
+          docker build -t "${IMAGE}:${{ github.sha }}" -t "${IMAGE}:latest" .
+          docker push "${IMAGE}:${{ github.sha }}"
+          docker push "${IMAGE}:latest"
+
+      - name: Apply Kubernetes manifests
+        run: kubectl apply -k k8s/
+
+      - name: Apply Kubernetes Secret
+        env:
+          SECRETS_TOML: ${{ secrets.SECRETS_TOML }}
+        run: |
+          kubectl -n budget-analysis create secret generic budget-analysis-secrets \
+            --from-literal=secrets.toml="$SECRETS_TOML" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Roll out new image
+        run: |
+          kubectl set image deployment/budget-analysis \
+            app=ghcr.io/mschmidlin1/budget-analysis:${{ github.sha }} \
+            -n budget-analysis
+          kubectl rollout status deployment/budget-analysis \
+            -n budget-analysis \
+            --timeout=5m
