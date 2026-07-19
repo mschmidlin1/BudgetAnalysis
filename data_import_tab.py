@@ -88,19 +88,10 @@ def render_data_import_tab(tab2):
             # Temporary storage for column mappings during this session
             temp_mappings = {}
             
-            # Display each saved file with remove button in collapsible sections
+            # Display each saved file with download/remove controls in collapsible sections
             for file_name in saved_files:
                 # Create collapsible section for each file
                 with st.expander(f"📄 {file_name}", expanded=False):
-                    # Remove button at the top of the expander
-                    if st.button("🗑️ Remove File", key=f"remove_{file_name}", use_container_width=True):
-                        delete_uploaded_file(file_name)
-                        # Remove from config
-                        if file_name in saved_mappings:
-                            del saved_mappings[file_name]
-                            save_upload_config(saved_mappings)
-                        st.rerun()
-                    
                     # Load and display file preview
                     try:
                         username = get_username()
@@ -110,6 +101,25 @@ def render_data_import_tab(tab2):
                         if csv_bytes is None:
                             st.error(f"Could not load {file_name} from storage")
                             continue
+
+                        dl_col, rm_col = st.columns(2)
+                        with dl_col:
+                            st.download_button(
+                                label="📥 Download File",
+                                data=csv_bytes,
+                                file_name=file_name,
+                                mime="text/csv",
+                                key=f"download_{file_name}",
+                                use_container_width=True,
+                            )
+                        with rm_col:
+                            if st.button("🗑️ Remove File", key=f"remove_{file_name}", use_container_width=True):
+                                delete_uploaded_file(file_name)
+                                # Remove from config
+                                if file_name in saved_mappings:
+                                    del saved_mappings[file_name]
+                                    save_upload_config(saved_mappings)
+                                st.rerun()
                         
                         df = pd.read_csv(io.BytesIO(csv_bytes))
                         
