@@ -1,8 +1,8 @@
 # Deployment Guide — `budget-analysis.schmidlin.casa`
 
-This guide covers **local development** and **homelab production** for Budget Analysis: a Streamlit app backed by **Google Sheets** and **Google Cloud Storage** (no database server to install).
+This guide covers **local development** and **homelab production** for Budget Analysis: a Streamlit app backed by **Google Sheets** (users) and **filesystem storage** on NFS (configs and uploads).
 
-Production deploys to the same stack as [Valhalla Landing Page](https://github.com/mschmidlin1/ValhallaLandingPage), [Dr. JAM](https://github.com/mschmidlin1/dr-jam), and [Resume Customizer](https://github.com/mschmidlin1/ResumeCustomizer): **self-hosted GitHub Actions runner** on **Valhalla**, **Docker** images on **GHCR**, **k3s** on Valhalla, public HTTPS via the existing **Cloudflare Tunnel** (`cloudflared`).
+Production deploys to the same stack as [Valhalla Landing Page](https://github.com/mschmidlin1/ValhallaLandingPage), [Dr. JAM](https://github.com/mschmidlin1/dr-jam), and [Resume Customizer](https://github.com/mschmidlin1/ResumeCustomizer): **self-hosted GitHub Actions runner** on **Valhalla**, **Docker** images on **GHCR**, **k3s** on Valhalla, public HTTPS via the existing **Cloudflare Tunnel** (`cloudflared`). NFS file storage lives on **Vanaheim** (see [NFS_setup.md](NFS_setup.md)).
 
 **Target URL:** `https://budget-analysis.schmidlin.casa`
 
@@ -31,11 +31,11 @@ For background, see Valhalla docs — especially [Self-Hosting.md](https://githu
 | **In-cluster Service URL** | `http://budget-analysis.budget-analysis.svc.cluster.local:80` |
 | **Container** | Python 3.11 + Streamlit on port **8501** |
 | **App host** | **Valhalla** (k3s + runner + tunnel) |
-| **Data stores** | **Google Sheets** (users) + **GCS** (configs, uploads) |
+| **Data stores** | **Google Sheets** (users) + **NFS** `/data` (configs, uploads) |
 
-**What you add:** a new namespace, GHCR package, self-hosted runner for this repo, and one Cloudflare tunnel hostname.
+**What you add:** a new namespace, GHCR package, self-hosted runner for this repo, one Cloudflare tunnel hostname, and NFS PV/PVC (Vanaheim export).
 
-**What you do not need:** MongoDB, Vanaheim, LAN database routing, or host-IP firewall rules for a database port.
+**What you do not need:** MongoDB or a database container.
 
 ---
 
@@ -54,9 +54,12 @@ flowchart TB
         pod[Streamlit pod :8501]
     end
 
+    subgraph vanaheim [Vanaheim]
+        nfs["/srv/budget-analysis NFS"]
+    end
+
     subgraph gcp [Google Cloud]
         sheets[(Google Sheets — users)]
-        gcs[(GCS bucket — configs/uploads)]
     end
 
     subgraph ghcr [GHCR]
@@ -70,7 +73,7 @@ flowchart TB
 
     main --> runner --> img --> ns --> pod
     pod --> sheets
-    pod --> gcs
+    pod -->|"PVC /data"| nfs
     host --> cfd --> ns
 ```
 
@@ -79,7 +82,7 @@ When a visitor opens `https://budget-analysis.schmidlin.casa`:
 1. Cloudflare terminates HTTPS and routes through the existing tunnel to `cloudflared` on Valhalla.
 2. `cloudflared` forwards to `http://budget-analysis.budget-analysis.svc.cluster.local:80`.
 3. The Service (port 80 → pod 8501) routes to the Streamlit pod.
-4. Streamlit reads `.streamlit/secrets.toml` (from a K8s Secret in production) and calls Google Sheets and GCS over HTTPS.
+4. Streamlit reads `.streamlit/secrets.toml` (from a K8s Secret) for Google Sheets, and reads/writes user files on the NFS volume mounted at `/data`.
 
 ---
 
@@ -87,16 +90,15 @@ When a visitor opens `https://budget-analysis.schmidlin.casa`:
 
 | Item | Location | Notes |
 |------|----------|-------|
-| **App code** | `main.py`, `*_tab.py`, `user_tools.py`, `gcs_utils.py`, … | Entry point is `main.py` at repo root |
-| **Dependencies** | `requirements.txt` | Streamlit, pandas, plotly, gspread, google-cloud-storage |
-| **Default configs** | `default_config.json`, `sample_transactions.csv` | Seeded into GCS for new users |
-| **Secrets template** | `.streamlit/secrets.toml.example` | GCP, Sheets, GCS, cookie |
+| **App code** | `main.py`, `*_tab.py`, `user_tools.py`, `storage_utils.py`, … | Entry point is `main.py` at repo root |
+| **Dependencies** | `requirements.txt` | Streamlit, pandas, plotly, gspread |
+| **Default configs** | `default_config.json`, `sample_transactions.csv` | Seeded into `/data` for new users |
+| **Secrets template** | `.streamlit/secrets.toml.example` | Sheets + cookie |
+| **Storage** | NFS PV/PVC → `/data` | See [NFS_setup.md](NFS_setup.md) |
 | **GitHub repo** | `github.com/mschmidlin1/BudgetAnalysis` | Synced with local |
 | **Streamlit Cloud** | `budgetanalysis-creditcardtransactions.streamlit.app` | Existing prod; homelab replaces this |
 
-**Still to do:** Docker files, k8s manifests, CI workflow, runner, tunnel hostname.
-
-**Already in place (Streamlit Cloud):** Google Cloud project, service account, GCS bucket, users Sheet, and `secrets.toml` — reuse the same values for homelab deploy.
+**Already in place:** Google Cloud project / service account for Sheets, users Sheet, NFS export on Vanaheim, and `secrets.toml` for Sheets + cookie.
 
 ### Assumptions
 
@@ -128,13 +130,15 @@ Phases 1–4 can land on a feature branch and merge to `main`. The workflow only
 
 ## Phase 1 — Local development and Docker
 
-No database container or host-IP wiring — just `secrets.toml` and Streamlit.
+No database container — just `secrets.toml`, Streamlit, and a local `./data` directory (or NFS in production).
 
 ### 1.1 Run directly (simplest)
 
-```powershell
-cd C:\Users\mschm\source\BudgetAnalysis
-.\.venv\Scripts\Activate.ps1
+```bash
+cd ~/source/BudgetAnalysis
+source .venv/bin/activate
+mkdir -p data
+export BUDGET_STORAGE_ROOT="$(pwd)/data"
 streamlit run main.py
 ```
 
@@ -190,9 +194,10 @@ services:
       - "8501:8501"
     volumes:
       - ./.streamlit/secrets.toml:/app/.streamlit/secrets.toml:ro
+      - ./data:/data
 ```
 
-That's it — no extra env vars. GCP credentials come entirely from the mounted `secrets.toml`.
+Sheets credentials come from the mounted `secrets.toml`. File storage uses `/data` (bind-mounted from `./data` locally).
 
 ### 1.3 Run in Docker
 
@@ -210,7 +215,12 @@ Open `http://localhost:8501`.
 
 ## Phase 2 — Kubernetes manifests
 
-Create `k8s/` with four files. Do **not** add `cloudflared` — the tunnel is shared cluster infrastructure.
+Create `k8s/` with namespace, PV/PVC, deployment, and service. Do **not** add `cloudflared` — the tunnel is shared cluster infrastructure. NFS must already be working (see [NFS_setup.md](NFS_setup.md)).
+
+Kustomize resources: `namespace.yaml`, `pv.yaml`, `pvc.yaml`, `deployment.yaml`, `service.yaml`.
+
+- **PV/PVC:** NFS `vanaheim.lan:/srv/budget-analysis` → claim `budget-analysis-data`
+- **Deployment:** mounts secrets at `/app/.streamlit/secrets.toml` and the PVC at `/data`
 
 ### 2.1 `k8s/namespace.yaml`
 
@@ -221,53 +231,22 @@ metadata:
   name: budget-analysis
 ```
 
-### 2.2 `k8s/deployment.yaml`
+### 2.2 `k8s/pv.yaml` / `k8s/pvc.yaml`
+
+See the repo files (NFS `vanaheim.lan:/srv/budget-analysis`, claim `budget-analysis-data`, `storageClassName: budget-analysis-nfs`).
+
+### 2.3 `k8s/deployment.yaml`
+
+Mounts secrets and the NFS PVC:
 
 ```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: budget-analysis
-  namespace: budget-analysis
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: budget-analysis
-  template:
-    metadata:
-      labels:
-        app: budget-analysis
-    spec:
-      containers:
-        - name: app
-          image: ghcr.io/mschmidlin1/budget-analysis:latest
-          ports:
-            - containerPort: 8501
           volumeMounts:
             - name: streamlit-secrets
               mountPath: /app/.streamlit/secrets.toml
               subPath: secrets.toml
               readOnly: true
-          livenessProbe:
-            httpGet:
-              path: /_stcore/health
-              port: 8501
-            initialDelaySeconds: 20
-            periodSeconds: 15
-          readinessProbe:
-            httpGet:
-              path: /_stcore/health
-              port: 8501
-            initialDelaySeconds: 10
-            periodSeconds: 10
-          resources:
-            requests:
-              cpu: 250m
-              memory: 512Mi
-            limits:
-              cpu: "1"
-              memory: 1Gi
+            - name: budget-analysis-data
+              mountPath: /data
       volumes:
         - name: streamlit-secrets
           secret:
@@ -275,9 +254,14 @@ spec:
             items:
               - key: secrets.toml
                 path: secrets.toml
+        - name: budget-analysis-data
+          persistentVolumeClaim:
+            claimName: budget-analysis-data
 ```
 
-### 2.3 `k8s/service.yaml`
+(Full probe/resource settings are in `k8s/deployment.yaml`.)
+
+### 2.4 `k8s/service.yaml`
 
 ```yaml
 apiVersion: v1
@@ -294,7 +278,7 @@ spec:
       targetPort: 8501
 ```
 
-### 2.4 `k8s/kustomization.yaml`
+### 2.5 `k8s/kustomization.yaml`
 
 ```yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
@@ -302,18 +286,20 @@ kind: Kustomization
 
 resources:
   - namespace.yaml
+  - pv.yaml
+  - pvc.yaml
   - deployment.yaml
   - service.yaml
 ```
 
-### 2.5 Apply once manually (optional)
+### 2.6 Apply once manually (optional)
 
 ```bash
 kubectl apply -k k8s/
-kubectl get all -n budget-analysis
+kubectl get all,pv,pvc -n budget-analysis
 ```
 
-`ImagePullBackOff` or `CreateContainerConfigError` before the first CI run is expected.
+`ImagePullBackOff` or `CreateContainerConfigError` before the first CI run is expected. PVC should be `Bound` if NFS is healthy.
 
 ---
 
@@ -511,6 +497,7 @@ Add `url: "https://budget-analysis.schmidlin.casa"` to [Valhalla `links.js`](htt
 | **Run** | `streamlit run main.py` or `docker compose up --build` | k8s pod on Valhalla |
 | **URL** | `http://localhost:8501` | `https://budget-analysis.schmidlin.casa` |
 | **Secrets** | `.streamlit/secrets.toml` on disk | K8s Secret mounted in pod |
+| **File storage** | `./data` or `BUDGET_STORAGE_ROOT` | NFS PVC at `/data` |
 | **Updates** | Save → refresh | Push to `main` |
 
 ---
@@ -530,6 +517,15 @@ Add `url: "https://budget-analysis.schmidlin.casa"` to [Valhalla `links.js`](htt
 
 ## Troubleshooting
 
+### NFS / filesystem storage errors
+
+| Symptom | Fix |
+|---------|-----|
+| Pod `FailedMount` | Confirm NFS export, firewall, and `vanaheim.lan` DNS (see [NFS_setup.md](NFS_setup.md)) |
+| Permission denied writing `/data` | Export flags / ownership on Vanaheim (`no_root_squash` for root containers) |
+| Empty user data after cutover | GCS → NFS migration not run yet — seed is only for new users |
+| PVC Pending | PV/PVC `storageClassName` and `volumeName` must match |
+
 ### Google Sheets errors
 
 | Symptom | Fix |
@@ -538,14 +534,6 @@ Add `url: "https://budget-analysis.schmidlin.casa"` to [Valhalla `links.js`](htt
 | Sheet not found | Check `[connections.gsheets] spreadsheet` URL |
 | API disabled | Enable Google Sheets API |
 | Missing tab | Worksheet must be named `users` |
-
-### GCS errors
-
-| Symptom | Fix |
-|---------|-----|
-| 403 | Grant `Storage Object Admin` on bucket |
-| Bucket not found | Check `[gcs] bucket_name` |
-| Client error | Add `universe_domain = "googleapis.com"` under `[gcp_service_account]` |
 
 ### Deploy / k8s
 
@@ -570,16 +558,18 @@ kubectl run net-test --rm -it --restart=Never --image=curlimages/curl -- \
 
 ## Completion checklist
 
-- [ ] `SECRETS_TOML` copied from Streamlit Cloud (or local `secrets.toml`)
+- [ ] `SECRETS_TOML` set (Sheets + cookie; `[gcs]` no longer required)
 - [ ] `Dockerfile`, `.dockerignore`, `docker-compose.yml` committed
-- [ ] `k8s/` manifests committed
+- [ ] `k8s/` manifests committed (including `pv.yaml` / `pvc.yaml`)
+- [ ] NFS export on Vanaheim verified ([NFS_setup.md](NFS_setup.md))
 - [ ] Self-hosted runner on Valhalla (Idle/Active)
 - [ ] `.github/workflows/deploy.yml` on `main`
 - [ ] GitHub secret `SECRETS_TOML` set; GHCR package public
-- [ ] Deploy workflow green; pod `Running 1/1`
+- [ ] Deploy workflow green; pod `Running 1/1` with `/data` mounted
 - [ ] Cloudflare hostname `budget-analysis.schmidlin.casa` → in-cluster Service
 - [ ] `curl -I https://budget-analysis.schmidlin.casa` → 200
 - [ ] Browser smoke test passes
+- [ ] *(Optional)* GCS → NFS data migration completed
 - [ ] *(Optional)* Streamlit Cloud retired; Valhalla link added
 
 ---

@@ -2,20 +2,17 @@ import streamlit as st
 import pandas as pd
 import json
 import os
-import shutil
-from pathlib import Path
-from configs import UPLOADED_FILES_DIR, CONFIGS_FOLDER_NAME, USERS_WORKSHEET
+from configs import USERS_WORKSHEET
 from streamlit_gsheets import GSheetsConnection
-from gcs_utils import (
+from storage_utils import (
     get_user_prefix,
     get_config_prefix,
     get_uploads_prefix,
-    save_json_to_gcs,
-    load_json_from_gcs,
-    list_blobs_with_prefix,
-    copy_local_file_to_gcs,
-    get_blob_name_for_config,
-    get_blob_name_for_upload
+    save_json,
+    load_json,
+    copy_file,
+    get_path_for_config,
+    get_path_for_upload,
 )
 
 
@@ -158,101 +155,83 @@ def get_username():
     return st.session_state.get('username', None)
 
 def get_user_folder_id():
-    """Get the GCS prefix for the current user"""
+    """Get the storage prefix for the current user"""
     username = get_username()
     if username:
         return get_user_prefix(username)
     return None
 
 def get_user_config_folder_id():
-    """Get the GCS prefix for user configs"""
+    """Get the storage prefix for user configs"""
     username = get_username()
     if username:
         return get_config_prefix(username)
     return None
 
 def get_user_uploads_folder_id():
-    """Get the GCS prefix for user uploads"""
+    """Get the storage prefix for user uploads"""
     username = get_username()
     if username:
         return get_uploads_prefix(username)
     return None
 
 def get_user_config_file():
-    """
-    Get user-specific config file path (legacy function for compatibility).
-    Now returns a tuple of (filename, folder_id) for Google Drive.
-    """
+    """Return the config filename for the current user."""
     username = get_username()
     if username:
         return f"{username}_config.json"
     return ""
 
 def get_user_upload_config_file():
-    """
-    Get user-specific upload config file path (legacy function for compatibility).
-    Now returns a tuple of (filename, folder_id) for Google Drive.
-    """
+    """Return the upload config filename for the current user."""
     username = get_username()
     if username:
         return f"{username}_upload_config.json"
     return ""
 
 def get_user_upload_dir():
-    """
-    Get user-specific upload directory (legacy function for compatibility).
-    Now returns the Google Drive folder ID.
-    """
+    """Return the uploads prefix for the current user."""
     return get_user_uploads_folder_id()
 
 def initialize_user_config(username):
-    """Initialize default configuration files and sample data for a new user in GCS"""
+    """Initialize default configuration files and sample data for a new user"""
     try:
-        # Get blob names for user's config files
-        config_blob_name = get_blob_name_for_config(username, "config")
-        upload_config_blob_name = get_blob_name_for_config(username, "upload_config")
+        config_key = get_path_for_config(username, "config")
+        upload_config_key = get_path_for_config(username, "upload_config")
         
-        # Check if config already exists
-        existing_config = load_json_from_gcs(config_blob_name)
+        existing_config = load_json(config_key)
         
         if not existing_config:
-            # Load default configuration
             try:
                 with open('default_config.json', 'r') as f:
                     default_config = json.load(f)
             except FileNotFoundError:
-                # If default_config.json doesn't exist, create empty config
                 default_config = {"search_strings": []}
             
-            # Save as user's config in GCS
-            save_json_to_gcs(default_config, config_blob_name)
+            save_json(default_config, config_key)
         
-        # Check if upload config already exists
-        existing_upload_config = load_json_from_gcs(upload_config_blob_name)
+        existing_upload_config = load_json(upload_config_key)
         
         if not existing_upload_config:
-            # Copy sample CSV file to user's upload directory in GCS
             sample_csv_name = "sample_transactions.csv"
             sample_csv_source = sample_csv_name
             
             if os.path.exists(sample_csv_source):
-                sample_blob_name = get_blob_name_for_upload(username, sample_csv_name)
-                copy_local_file_to_gcs(sample_csv_source, sample_blob_name)
+                sample_key = get_path_for_upload(username, sample_csv_name)
+                copy_file(sample_csv_source, sample_key)
                 
-                # Create upload config with sample file mapping
                 sample_file_mapping = {
                     sample_csv_name: ["Transaction Date", "Amount", "Description"]
                 }
                 
                 upload_config = {"file_mappings": sample_file_mapping}
-                save_json_to_gcs(upload_config, upload_config_blob_name)
+                save_json(upload_config, upload_config_key)
             else:
-                # Create empty upload config
                 upload_config = {"file_mappings": {}}
-                save_json_to_gcs(upload_config, upload_config_blob_name)
+                save_json(upload_config, upload_config_key)
                 
     except Exception as e:
-        st.error(f"Error initializing user config in GCS: {e}")
+        st.error(f"Error initializing user config: {e}")
         raise
 
 #endregion

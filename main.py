@@ -4,7 +4,6 @@ from typing import Tuple
 from huggingface_hub import login
 import plotly.express as px
 from IPython.display import display
-from pathlib import Path
 import json
 from code_editor import code_editor
 import streamlit_authenticator as stauth
@@ -15,7 +14,7 @@ from main_tab import render_main_tab
 from info_tab import render_info_tab
 from sidebar import render_sidebar
 
-from configs import CONFIGS_FOLDER_NAME, get_cookie_config
+from configs import get_cookie_config
 from user_tools import load_users_dataframe, dataframe_to_config
 
 
@@ -33,9 +32,6 @@ authenticator = stauth.Authenticate(
     cookie_config['key'],
     cookie_config['expiry_days']
 )
-
-# Ensure configs directory exists
-Path(CONFIGS_FOLDER_NAME).mkdir(exist_ok=True)
 
 
 

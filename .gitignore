@@ -211,6 +211,9 @@ uploaded_files/
 upload_config.json
 configs/
 
+# Local filesystem storage (docker-compose ./data mount)
+data/
+
 # Authentication credentials (IMPORTANT: Keep this secure!)
 credentials.yaml
 credentials.yaml.backup

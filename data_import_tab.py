@@ -21,9 +21,9 @@ from upload_tools import (
     clear_all_uploads
 )
 
-from gcs_utils import (
-    download_blob_as_bytes,
-    get_blob_name_for_upload
+from storage_utils import (
+    read_bytes,
+    get_path_for_upload
 )
 
 from config_tools import (
@@ -103,16 +103,14 @@ def render_data_import_tab(tab2):
                     
                     # Load and display file preview
                     try:
-                        # Download CSV from GCS
                         username = get_username()
-                        blob_name = get_blob_name_for_upload(username, file_name)
-                        csv_bytes = download_blob_as_bytes(blob_name)
+                        relative_key = get_path_for_upload(username, file_name)
+                        csv_bytes = read_bytes(relative_key)
                         
                         if csv_bytes is None:
-                            st.error(f"Could not load {file_name} from cloud storage")
+                            st.error(f"Could not load {file_name} from storage")
                             continue
                         
-                        # Read CSV from bytes
                         df = pd.read_csv(io.BytesIO(csv_bytes))
                         
                         st.markdown("**File Preview**")

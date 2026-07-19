@@ -6,7 +6,7 @@ import plotly.express as px
 from IPython.display import display
 from pathlib import Path
 import io
-from gcs_utils import download_blob_as_bytes, get_blob_name_for_upload
+from storage_utils import read_bytes, get_path_for_upload
 from user_tools import get_username
 
 
@@ -702,23 +702,21 @@ def combine_transaction_files(transaction_sheets, base_path="2025Transactions",
                               parse_dates=True, sort_by_date=False):
     """Enhanced version with date parsing and sorting options.
     
-    Note: base_path is now a GCS prefix (e.g., 'username/uploads/') when using cloud storage.
+    Note: files are loaded from filesystem storage under the user's uploads prefix.
     """
     combined_data = []
     
     for filename, columns in transaction_sheets.items():
-        # Download CSV from GCS
         username = get_username()
         if not username:
             raise Exception("No username found in session")
         
-        blob_name = get_blob_name_for_upload(username, filename)
-        csv_bytes = download_blob_as_bytes(blob_name)
+        relative_key = get_path_for_upload(username, filename)
+        csv_bytes = read_bytes(relative_key)
         
         if csv_bytes is None:
-            raise FileNotFoundError(f"Could not load {filename} from cloud storage")
+            raise FileNotFoundError(f"Could not load {filename} from storage")
         
-        # Read CSV from bytes
         df = pd.read_csv(io.BytesIO(csv_bytes))
         
         date_col, amount_col, description_col = columns

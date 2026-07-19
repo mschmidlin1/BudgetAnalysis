@@ -8,7 +8,7 @@ When you are done, you will have:
 2. A successful read/write test from the Valhalla host
 3. A successful read/write test from a pod inside Kubernetes
 
-**Related docs:** [deployment.md](deployment.md) (app deploy), future `storage_utils.py` refactor (app code; not covered here).
+**Related docs:** [deployment.md](deployment.md) (app deploy). GCS → NFS data migration is a follow-up.
 
 ---
 
@@ -462,16 +462,17 @@ sudo rm -f /srv/budget-analysis/host-test.txt \
 
 ---
 
-## Phase 5 — What comes next (app integration)
+## Phase 5 — App integration (code + k8s)
 
-After NFS tests pass, the app refactor will:
+NFS infra is ready. App integration (filesystem storage + PV/PVC mount) is in the repo:
 
-1. Add `k8s/pv.yaml` and `k8s/pvc.yaml` (like Phase 4.5) to the repo
-2. Mount the PVC at `/data` in `k8s/deployment.yaml`
-3. Replace `gcs_utils.py` with filesystem-based `storage_utils.py`
-4. Migrate existing GCS blobs into `/srv/budget-analysis/{username}/...`
+1. `k8s/pv.yaml` and `k8s/pvc.yaml` — NFS share as `budget-analysis-data`
+2. PVC mounted at `/data` in `k8s/deployment.yaml`
+3. `storage_utils.py` — filesystem backend (replaces `gcs_utils.py`)
 
-Until that work lands, the Budget Analysis pod will **not** use this share — only your test pods do.
+**Still follow-up (separate from code):** migrate existing GCS blobs into `/srv/budget-analysis/{username}/...`. Until that copy runs, the share may be empty aside from newly seeded users.
+
+See [deployment.md](deployment.md) for apply/verify steps.
 
 ---
 
