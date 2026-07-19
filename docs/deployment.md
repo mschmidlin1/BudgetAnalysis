@@ -523,7 +523,7 @@ Add `url: "https://budget-analysis.schmidlin.casa"` to [Valhalla `links.js`](htt
 |---------|-----|
 | Pod `FailedMount` | Confirm NFS export, firewall, and `vanaheim.lan` DNS (see [NFS_setup.md](NFS_setup.md)) |
 | Permission denied writing `/data` | Export flags / ownership on Vanaheim (`no_root_squash` for root containers) |
-| Empty user data after cutover | GCS → NFS migration not run yet — seed is only for new users |
+| Empty user data after cutover | GCS → NFS migration not run yet — see [migrate_gcs_to_nfs.md](migrate_gcs_to_nfs.md) |
 | PVC Pending | PV/PVC `storageClassName` and `volumeName` must match |
 
 ### Google Sheets errors
@@ -569,13 +569,15 @@ kubectl run net-test --rm -it --restart=Never --image=curlimages/curl -- \
 - [ ] Cloudflare hostname `budget-analysis.schmidlin.casa` → in-cluster Service
 - [ ] `curl -I https://budget-analysis.schmidlin.casa` → 200
 - [ ] Browser smoke test passes
-- [ ] *(Optional)* GCS → NFS data migration completed
+- [ ] *(Optional)* GCS → NFS data migration completed ([migrate_gcs_to_nfs.md](migrate_gcs_to_nfs.md))
 - [ ] *(Optional)* Streamlit Cloud retired; Valhalla link added
 
 ---
 
 ## See also
 
+- [migrate_gcs_to_nfs.md](migrate_gcs_to_nfs.md) — GCS → NFS data migration (probe + manual fallback)
+- [NFS_setup.md](NFS_setup.md) — NFS export and k8s mount
 - [Resume Customizer deployment.md](https://github.com/mschmidlin1/ResumeCustomizer/blob/main/docs/deployment.md)
 - [Dr. JAM Deployment.md](https://github.com/mschmidlin1/dr-jam/blob/main/docs/Deployment.md)
 - [Valhalla Self-Hosting.md](https://github.com/mschmidlin1/ValhallaLandingPage/blob/main/docs/Self-Hosting.md)

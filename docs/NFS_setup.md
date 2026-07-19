@@ -470,7 +470,7 @@ NFS infra is ready. App integration (filesystem storage + PV/PVC mount) is in th
 2. PVC mounted at `/data` in `k8s/deployment.yaml`
 3. `storage_utils.py` — filesystem backend (replaces `gcs_utils.py`)
 
-**Still follow-up (separate from code):** migrate existing GCS blobs into `/srv/budget-analysis/{username}/...`. Until that copy runs, the share may be empty aside from newly seeded users.
+**Still follow-up:** migrate existing GCS blobs into `/srv/budget-analysis/{username}/...` — see [migrate_gcs_to_nfs.md](migrate_gcs_to_nfs.md) (probe first; manual fallback if the GCS trial is dead).
 
 See [deployment.md](deployment.md) for apply/verify steps.
 
@@ -552,4 +552,5 @@ Harmless for the app if only the Streamlit container accesses the share. For tid
 ## See also
 
 - [deployment.md](deployment.md) — Budget Analysis homelab deploy
+- [migrate_gcs_to_nfs.md](migrate_gcs_to_nfs.md) — GCS → NFS data migration
 - [Valhalla Self-Hosting.md](https://github.com/mschmidlin1/ValhallaLandingPage/blob/main/docs/Self-Hosting.md) — k3s and runner setup
