@@ -18,9 +18,62 @@ from storage_utils import (
 
 #region Google Sheets Connection
 
+USERS_COLUMNS = [
+    'username', 'email', 'first_name', 'last_name',
+    'password', 'password_hint', 'logged_in',
+    'failed_login_attempts', 'roles',
+]
+
+
 def get_gsheets_connection():
     """Get or create Google Sheets connection"""
     return st.connection("gsheets", type=GSheetsConnection)
+
+
+def _empty_users_dataframe():
+    return pd.DataFrame(columns=USERS_COLUMNS)
+
+
+def _coerce_logged_in(value) -> bool:
+    if value is None or (isinstance(value, float) and pd.isna(value)) or pd.isna(value):
+        return False
+    if isinstance(value, str):
+        return value.strip().lower() in ('1', 'true', 'yes')
+    return bool(value)
+
+
+def _coerce_failed_attempts(value) -> int:
+    if value is None or (isinstance(value, float) and pd.isna(value)) or pd.isna(value):
+        return 0
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def normalize_users_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Coerce Sheet-backed columns to writable dtypes.
+
+    Empty Google Sheets cells often arrive as NaN, so pandas types
+    logged_in / failed_login_attempts as float64. Assigning False then
+    raises: Invalid value 'False' for dtype 'float64'.
+    """
+    if df is None or df.empty:
+        return _empty_users_dataframe()
+
+    df = df.copy()
+    for col in USERS_COLUMNS:
+        if col not in df.columns:
+            df[col] = pd.NA
+
+    for col in ['username', 'email', 'first_name', 'last_name', 'password', 'password_hint', 'roles']:
+        df[col] = df[col].map(lambda x: '' if pd.isna(x) else str(x))
+
+    df['logged_in'] = df['logged_in'].map(_coerce_logged_in)
+    df['failed_login_attempts'] = df['failed_login_attempts'].map(_coerce_failed_attempts)
+    return df
+
 
 def load_users_dataframe():
     """Load users data from Google Sheets into a pandas DataFrame"""
@@ -28,29 +81,19 @@ def load_users_dataframe():
         conn = get_gsheets_connection()
         df = conn.read(worksheet=USERS_WORKSHEET, ttl=0)
         
-        # If the sheet is empty or doesn't exist, create default structure
         if df is None or df.empty:
-            df = pd.DataFrame(columns=[
-                'username', 'email', 'first_name', 'last_name', 
-                'password', 'password_hint', 'logged_in', 
-                'failed_login_attempts', 'roles'
-            ])
+            return _empty_users_dataframe()
         
-        return df
+        return normalize_users_dataframe(df)
     except Exception as e:
         st.error(f"Error loading users from Google Sheets: {e}")
-        # Return empty dataframe with expected structure
-        return pd.DataFrame(columns=[
-            'username', 'email', 'first_name', 'last_name', 
-            'password', 'password_hint', 'logged_in', 
-            'failed_login_attempts', 'roles'
-        ])
+        return _empty_users_dataframe()
 
 def save_users_dataframe(df):
     """Save users DataFrame back to Google Sheets"""
     try:
         conn = get_gsheets_connection()
-        conn.update(worksheet=USERS_WORKSHEET, data=df)
+        conn.update(worksheet=USERS_WORKSHEET, data=normalize_users_dataframe(df))
         return True
     except Exception as e:
         st.error(f"Error saving users to Google Sheets: {e}")
@@ -75,21 +118,21 @@ def dataframe_to_config(df):
         user_data = {
             'email': str(row.get('email', '')) if pd.notna(row.get('email')) else '',
             'password': str(row.get('password', '')) if pd.notna(row.get('password')) else '',
-            'logged_in': bool(row.get('logged_in', False)),
+            'logged_in': _coerce_logged_in(row.get('logged_in', False)),
         }
         
         # Add optional fields if they exist
-        if pd.notna(row.get('first_name')):
+        if pd.notna(row.get('first_name')) and str(row.get('first_name', '')).strip():
             user_data['first_name'] = str(row['first_name'])
-        if pd.notna(row.get('last_name')):
+        if pd.notna(row.get('last_name')) and str(row.get('last_name', '')).strip():
             user_data['last_name'] = str(row['last_name'])
-        if pd.notna(row.get('name')):
+        if pd.notna(row.get('name')) and str(row.get('name', '')).strip():
             user_data['name'] = str(row['name'])
-        if pd.notna(row.get('password_hint')):
+        if pd.notna(row.get('password_hint')) and str(row.get('password_hint', '')).strip():
             user_data['password_hint'] = str(row['password_hint'])
         if pd.notna(row.get('failed_login_attempts')):
-            user_data['failed_login_attempts'] = int(row['failed_login_attempts'])
-        if pd.notna(row.get('roles')):
+            user_data['failed_login_attempts'] = _coerce_failed_attempts(row['failed_login_attempts'])
+        if pd.notna(row.get('roles')) and str(row.get('roles', '')).strip():
             user_data['roles'] = str(row['roles'])
         
         config['credentials']['usernames'][username] = user_data
@@ -98,36 +141,40 @@ def dataframe_to_config(df):
 
 def update_user_in_dataframe(df, username, updates):
     """Update a specific user's data in the DataFrame"""
-    # Ensure username is a string for comparison
+    df = normalize_users_dataframe(df)
     username = str(username)
     if username in df['username'].values:
         idx = df[df['username'] == username].index[0]
         for key, value in updates.items():
-            if key in df.columns:
-                # Ensure string fields are stored as strings
-                if key in ['username', 'email', 'first_name', 'last_name', 'password', 'password_hint', 'roles']:
-                    value = str(value) if value is not None else ''
-                df.at[idx, key] = value
+            if key not in df.columns:
+                continue
+            if key in ['username', 'email', 'first_name', 'last_name', 'password', 'password_hint', 'roles']:
+                value = str(value) if value is not None else ''
+            elif key == 'logged_in':
+                value = _coerce_logged_in(value)
+            elif key == 'failed_login_attempts':
+                value = _coerce_failed_attempts(value)
+            df.at[idx, key] = value
     return df
 
 def add_user_to_dataframe(df, username, user_data):
     """Add a new user to the DataFrame"""
+    df = normalize_users_dataframe(df)
     new_row = {
-        'username': str(username),  # Ensure username is always a string
+        'username': str(username),
         'email': str(user_data.get('email', '')),
         'first_name': str(user_data.get('first_name', '')),
         'last_name': str(user_data.get('last_name', '')),
         'password': str(user_data.get('password', '')),
         'password_hint': str(user_data.get('password_hint', '')),
-        'logged_in': user_data.get('logged_in', False),
-        'failed_login_attempts': user_data.get('failed_login_attempts', 0),
-        'roles': str(user_data.get('roles', '')) if user_data.get('roles') else None
+        'logged_in': _coerce_logged_in(user_data.get('logged_in', False)),
+        'failed_login_attempts': _coerce_failed_attempts(user_data.get('failed_login_attempts', 0)),
+        'roles': str(user_data.get('roles', '')) if user_data.get('roles') else '',
     }
     
-    # Use pd.concat instead of append (deprecated)
     new_df = pd.DataFrame([new_row])
     df = pd.concat([df, new_df], ignore_index=True)
-    return df
+    return normalize_users_dataframe(df)
 
 #endregion
 
