@@ -745,7 +745,7 @@ def combine_transaction_files(transaction_sheets, base_path="2025Transactions",
 
     # Optional: Parse dates
     if parse_dates:
-        result_df['Date'] = pd.to_datetime(result_df['Date'])
+        result_df['Date'] = pd.to_datetime(result_df['Date'], format='mixed')
 
     # Optional: Sort by date
     if sort_by_date:
@@ -764,7 +764,7 @@ def filter_transactions_by_date(
         return df
 
     filtered = df.copy()
-    filtered["Date"] = pd.to_datetime(filtered["Date"])
+    filtered["Date"] = pd.to_datetime(filtered["Date"], format="mixed")
 
     if start_date is not None:
         start = pd.Timestamp(start_date)

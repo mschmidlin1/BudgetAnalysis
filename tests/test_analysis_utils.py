@@ -50,6 +50,42 @@ class FilterTransactionsByDateTests(unittest.TestCase):
         )
         self.assertEqual(filtered["Description"].tolist(), ["Mar"])
 
+    def test_mixed_us_and_iso_date_formats(self):
+        """Manual CSVs often use MM/DD/YYYY; Plaid writes ISO YYYY-MM-DD."""
+        mixed = pd.DataFrame(
+            {
+                "Source": ["manual.csv", "bank_plaid.csv"],
+                "Date": ["07/23/2026", "2026-07-23"],
+                "Amount": [-10.0, -20.0],
+                "Description": ["Manual", "Plaid"],
+            }
+        )
+        filtered = filter_transactions_by_date(
+            mixed,
+            start_date=date(2026, 7, 23),
+            end_date=date(2026, 7, 23),
+        )
+        self.assertEqual(len(filtered), 2)
+        self.assertEqual(
+            filtered["Date"].dt.normalize().tolist(),
+            [pd.Timestamp("2026-07-23"), pd.Timestamp("2026-07-23")],
+        )
+
+
+class MixedDateParsingTests(unittest.TestCase):
+    def test_to_datetime_mixed_formats(self):
+        """Same parse path as combine_transaction_files after concat."""
+        dates = pd.Series(["07/23/2026", "2026-07-24", "01/15/2026"])
+        parsed = pd.to_datetime(dates, format="mixed")
+        self.assertEqual(
+            parsed.tolist(),
+            [
+                pd.Timestamp("2026-07-23"),
+                pd.Timestamp("2026-07-24"),
+                pd.Timestamp("2026-01-15"),
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
