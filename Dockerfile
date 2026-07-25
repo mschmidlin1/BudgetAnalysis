@@ -7,6 +7,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY *.py .
+COPY plaid_link_frontend ./plaid_link_frontend
 COPY default_config.json sample_transactions.csv example_nested_config.json ./
 
 EXPOSE 8501

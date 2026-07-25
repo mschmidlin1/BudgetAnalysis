@@ -47,16 +47,21 @@ def render_info_tab(tab):
         ### Step 1: Import Your Transaction Data
         
         Navigate to the **📁 Data Import** tab to get started:
+
+        1. **Bank connection (Plaid)**: Select **Connect account** to securely
+           authorize Plaid, then use **Sync transactions** whenever you want to
+           refresh posted activity. Bank credentials are handled by Plaid and
+           are never sent to this app. You can connect one institution at a time.
         
-        1. **Upload CSV Files**: Click the file uploader and select one or more CSV files containing 
+        2. **CSV Files**: Click the file uploader and select one or more CSV files containing
            your transaction data (credit card statements, bank exports, etc.)
         
-        2. **Map Columns**: For each uploaded file, specify which columns contain:
+        3. **Map Columns**: For each uploaded file, specify which columns contain:
            - **Date**: Transaction date
            - **Amount**: Transaction amount (positive or negative)
            - **Description**: Transaction description/merchant name
         
-        3. **Save Configuration**: Click "💾 Save Column Mappings" to store your settings
+        4. **Save Configuration**: Click "💾 Save Column Mappings" to store your settings
         
         > 💡 **Tip**: The app remembers your column mappings, so you only need to configure each 
         > file type once!

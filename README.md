@@ -11,6 +11,7 @@ Legacy Streamlit Cloud (until retired):
 ## Features
 
 - User authentication with secure login
+- Bank connection through Plaid (one institution at a time)
 - CSV transaction import with flexible column mapping
 - Nested category configuration for expense tracking
 - Interactive sunburst visualizations
@@ -19,7 +20,7 @@ Legacy Streamlit Cloud (until retired):
 ## Data Storage
 
 - **Google Sheets**: User accounts / authentication
-- **Filesystem** (`/data` in the container, NFS-backed in k3s): uploaded CSVs and per-user configs under `{username}/configs/` and `{username}/uploads/`
+- **Filesystem** (`/data` in the container, NFS-backed in k3s): uploaded/generated CSVs, per-user configs, and encrypted Plaid access tokens
 
 ## Installation
 
@@ -30,7 +31,7 @@ Legacy Streamlit Cloud (until retired):
    pip install -r requirements.txt
    ```
 
-2. Create a `.streamlit/secrets.toml` from `.streamlit/secrets.toml.example` (Sheets + cookie).
+2. Create a `.streamlit/secrets.toml` from `.streamlit/secrets.toml.example` (Sheets, cookie, and Plaid).
 
 3. For local filesystem storage, create a data directory and point the app at it:
    ```bash
@@ -47,7 +48,7 @@ Legacy Streamlit Cloud (until retired):
 ## Usage
 
 1. Register and login
-2. Upload CSV transaction files in the Data Import tab
+2. Connect a bank through Plaid or upload CSV transaction files
 3. Configure spending categories using JSON format
 4. View interactive visualizations and reports
 

@@ -144,6 +144,31 @@ streamlit run main.py
 
 Open `http://localhost:8501`. Confirm login, registration, CSV upload, and the sunburst chart work.
 
+### 1.1.1 Plaid / Robinhood secrets
+
+Robinhood imports require a `[plaid]` section in `.streamlit/secrets.toml`:
+
+```toml
+[plaid]
+client_id = "<from-plaid-dashboard>"
+secret = "<secret-for-the-selected-environment>"
+env = "sandbox" # sandbox | production (Trial uses production)
+token_encryption_key = "<fernet-key>"
+# Optional; must exactly match a Plaid Allowed redirect URI.
+# redirect_uri = "https://budget-analysis.schmidlin.casa/"
+```
+
+Generate `token_encryption_key` once and keep the same key for as long as
+encrypted user tokens exist:
+
+```powershell
+.\.venv\Scripts\python.exe -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Changing or losing this key makes stored Plaid access tokens unreadable; users
+must then reconnect. Never commit the real values. For production, include this
+whole section in the existing GitHub `SECRETS_TOML` secret.
+
 ### 1.2 Docker files
 
 Add these three files at the repo root. The same image is used locally and in production.
