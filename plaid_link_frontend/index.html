@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: transparent;
+        font-family:
+          "Source Sans Pro", -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+      }
+
+      #link-shell {
+        min-height: 3rem;
+      }
+
+      button {
+        width: 100%;
+        min-height: 2.5rem;
+        padding: 0.55rem 1rem;
+        border: 1px solid rgb(0 104 201);
+        border-radius: 0.5rem;
+        background: rgb(0 104 201);
+        color: white;
+        cursor: pointer;
+        font-size: 1rem;
+        font-weight: 600;
+      }
+
+      button:hover {
+        background: rgb(0 83 161);
+      }
+
+      button:disabled {
+        cursor: wait;
+        opacity: 0.65;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="link-shell">
+      <button id="link-button" disabled>Loading Plaid…</button>
+    </div>
+    <script>
+      const button = document.getElementById("link-button");
+      const LINK_OPEN_HEIGHT = 760;
+      const LINK_CLOSED_HEIGHT = 56;
+      let handler = null;
+      let currentToken = null;
+      let linkOpen = false;
+
+      function post(type, extra = {}) {
+        window.parent.postMessage(
+          { isStreamlitMessage: true, type, ...extra },
+          "*",
+        );
+      }
+
+      function setHeight(height) {
+        post("streamlit:setFrameHeight", {
+          height: Math.ceil(height),
+        });
+      }
+
+      function setClosedHeight() {
+        linkOpen = false;
+        setHeight(LINK_CLOSED_HEIGHT);
+      }
+
+      function setOpenHeight() {
+        linkOpen = true;
+        setHeight(LINK_OPEN_HEIGHT);
+      }
+
+      function setValue(value) {
+        post("streamlit:setComponentValue", {
+          value,
+          dataType: "json",
+        });
+      }
+
+      function serializableMetadata(metadata) {
+        return {
+          institution: metadata.institution
+            ? {
+                institution_id: metadata.institution.institution_id,
+                name: metadata.institution.name,
+              }
+            : null,
+          accounts: (metadata.accounts || []).map((account) => ({
+            id: account.id,
+            name: account.name,
+            mask: account.mask,
+            type: account.type,
+            subtype: account.subtype,
+          })),
+          link_session_id: metadata.link_session_id || null,
+        };
+      }
+
+      function render(args) {
+        const token = args.link_token;
+        button.textContent = args.button_text || "Connect account";
+
+        if (!token || typeof Plaid === "undefined") {
+          button.disabled = true;
+          button.textContent = token ? "Plaid failed to load" : "Missing Link token";
+          setClosedHeight();
+          return;
+        }
+
+        if (token !== currentToken) {
+          if (handler) {
+            handler.destroy();
+          }
+          currentToken = token;
+          handler = Plaid.create({
+            token,
+            onSuccess: (publicToken, metadata) => {
+              setClosedHeight();
+              setValue({
+                public_token: publicToken,
+                metadata: serializableMetadata(metadata),
+              });
+            },
+            onExit: (error, metadata) => {
+              setClosedHeight();
+              button.disabled = false;
+              if (error) {
+                setValue({
+                  error: {
+                    error_code: error.error_code || "LINK_ERROR",
+                    display_message:
+                      error.display_message ||
+                      "Plaid Link closed before connecting.",
+                  },
+                  metadata: serializableMetadata(metadata || {}),
+                });
+              }
+            },
+            onEvent: (eventName) => {
+              // Keep the Streamlit iframe tall while the Link modal is visible.
+              if (
+                eventName === "OPEN" ||
+                eventName === "OPEN_OAUTH" ||
+                eventName === "TRANSITION_VIEW"
+              ) {
+                setOpenHeight();
+              }
+              if (eventName === "EXIT" || eventName === "HANDOFF") {
+                setClosedHeight();
+              }
+            },
+            onLoad: () => {
+              button.disabled = false;
+            },
+          });
+        }
+
+        button.disabled = false;
+        button.onclick = () => {
+          button.disabled = true;
+          setOpenHeight();
+          handler.open();
+          window.setTimeout(() => {
+            if (!linkOpen) {
+              button.disabled = false;
+            }
+          }, 1000);
+        };
+        if (!linkOpen) {
+          setClosedHeight();
+        }
+      }
+
+      window.addEventListener("message", (event) => {
+        if (event.data && event.data.type === "streamlit:render") {
+          render(event.data.args || {});
+        }
+      });
+
+      post("streamlit:componentReady", { apiVersion: 1 });
+      setClosedHeight();
+    </script>
+  </body>
+</html>

@@ -701,26 +701,26 @@ def create_html_report(expense_summary, fig, filename='expense_report.html'):
 def combine_transaction_files(transaction_sheets, base_path="2025Transactions",
                               parse_dates=True, sort_by_date=False):
     """Enhanced version with date parsing and sorting options.
-    
+
     Note: files are loaded from filesystem storage under the user's uploads prefix.
     """
     combined_data = []
-    
+
     for filename, columns in transaction_sheets.items():
         username = get_username()
         if not username:
             raise Exception("No username found in session")
-        
+
         relative_key = get_path_for_upload(username, filename)
         csv_bytes = read_bytes(relative_key)
-        
+
         if csv_bytes is None:
             raise FileNotFoundError(f"Could not load {filename} from storage")
-        
+
         df = pd.read_csv(io.BytesIO(csv_bytes))
-        
+
         date_col, amount_col, description_col = columns
-        
+
         standardized_df = pd.DataFrame({
             'Source': filename,
             'Date': df[date_col],
@@ -740,15 +740,37 @@ def combine_transaction_files(transaction_sheets, base_path="2025Transactions",
             standardized_df = standardized_df[standardized_df['Amount'] > 0]
         standardized_df.reset_index(drop=True, inplace=True)
         combined_data.append(standardized_df)
-    
+
     result_df = pd.concat(combined_data, ignore_index=True)
-    
+
     # Optional: Parse dates
     if parse_dates:
         result_df['Date'] = pd.to_datetime(result_df['Date'])
-    
+
     # Optional: Sort by date
     if sort_by_date:
         result_df = result_df.sort_values('Date').reset_index(drop=True)
-    
+
     return result_df
+
+
+def filter_transactions_by_date(
+    df: pd.DataFrame,
+    start_date=None,
+    end_date=None,
+) -> pd.DataFrame:
+    """Filter a transaction DataFrame to an inclusive date range."""
+    if df is None or df.empty or "Date" not in df.columns:
+        return df
+
+    filtered = df.copy()
+    filtered["Date"] = pd.to_datetime(filtered["Date"])
+
+    if start_date is not None:
+        start = pd.Timestamp(start_date)
+        filtered = filtered[filtered["Date"] >= start]
+    if end_date is not None:
+        end_exclusive = pd.Timestamp(end_date) + pd.Timedelta(days=1)
+        filtered = filtered[filtered["Date"] < end_exclusive]
+
+    return filtered.reset_index(drop=True)

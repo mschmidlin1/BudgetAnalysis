@@ -52,7 +52,7 @@ class StorageUtilsTests(unittest.TestCase):
         src.write_text("a,b\n1,2\n", encoding="utf-8")
         key = "carol/uploads/source.csv"
         storage_utils.copy_file(str(src), key)
-        self.assertEqual(storage_utils.read_text(key), "a,b\n1,2\n")
+        self.assertEqual(storage_utils.read_bytes(key), src.read_bytes())
 
     def test_list_with_prefix(self):
         storage_utils.write_text("dave/uploads/a.csv", "a")

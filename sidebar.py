@@ -1,5 +1,7 @@
 import streamlit as st
 
+from plaid_ui import clear_plaid_session_keys
+
 
 def clear_analysis_results():
     """Clear all analysis results from session state"""
@@ -27,6 +29,7 @@ def render_sidebar(authenticator):
         current_auth_status = st.session_state.get('authentication_status', None)
         if prev_auth_status == True and current_auth_status != True:
             clear_analysis_results()
+            clear_plaid_session_keys(st.session_state)
         
         # Update previous authentication status
         st.session_state.prev_authentication_status = current_auth_status

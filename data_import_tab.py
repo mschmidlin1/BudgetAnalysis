@@ -42,6 +42,7 @@ from analysis_utils import (
     display_expense_table,
     export_expense_table,
     create_html_report)
+from plaid_ui import render_plaid_import
 
 
 
@@ -53,7 +54,11 @@ def render_data_import_tab(tab2):
 # ============================================================================
     with tab2:
         st.header("Data Import")
-        st.write("Upload CSV files and map columns for transaction analysis")
+        st.write("Connect a bank through Plaid or upload CSV files for transaction analysis")
+
+        render_plaid_import()
+        st.divider()
+        st.subheader("CSV files")
         
         # Load existing uploaded files and mappings from disk
         saved_files = load_uploaded_files()
