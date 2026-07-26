@@ -22,14 +22,17 @@ from upload_tools import (
 from config_tools import (
     load_config,
     load_upload_config,
+    load_ignore_strings,
     save_upload_config,
-    save_config
+    save_config,
+    save_ignore_strings
 )
 from analysis_utils import (
     combine_transaction_files,
     split_dataframe_by_search,
     summarize_search_category,
     process_search_strings,
+    filter_ignored_descriptions,
     create_sunburst_chart,
     create_expense_table,
     display_expense_table,
@@ -142,6 +145,87 @@ def render_main_tab(tab1):
                 st.session_state.config_key += 1  # Change key to force new widget
                 st.rerun()
 
+        # ============================================================================
+        # IGNORE STRINGS (collapsed by default)
+        # ============================================================================
+        if 'ignore_draft' not in st.session_state:
+            st.session_state.ignore_draft = load_ignore_strings()
+        if 'ignore_input_key' not in st.session_state:
+            st.session_state.ignore_input_key = 0
+
+        ignore_count = len(st.session_state.ignore_draft)
+        expander_label = (
+            f"Ignored description strings ({ignore_count})"
+            if ignore_count
+            else "Ignored description strings"
+        )
+
+        with st.expander(expander_label, expanded=False):
+            st.caption(
+                "Transactions whose Description contains any of these substrings "
+                "are excluded from analysis (case-insensitive)."
+            )
+
+            add_col1, add_col2 = st.columns([4, 1])
+            with add_col1:
+                new_ignore = st.text_input(
+                    "Add ignore string",
+                    value="",
+                    placeholder="e.g. PAYMENT THANK YOU",
+                    label_visibility="collapsed",
+                    key=f"ignore_string_input_{st.session_state.ignore_input_key}",
+                )
+            with add_col2:
+                if st.button("Add", use_container_width=True, key="add_ignore_btn"):
+                    candidate = (new_ignore or "").strip()
+                    if not candidate:
+                        st.warning("Enter a non-empty string to ignore.")
+                    elif any(
+                        s.casefold() == candidate.casefold()
+                        for s in st.session_state.ignore_draft
+                    ):
+                        st.info("That string is already in the ignore list.")
+                    else:
+                        st.session_state.ignore_draft = (
+                            list(st.session_state.ignore_draft) + [candidate]
+                        )
+                        # Remount the text input empty (can't mutate widget state after instantiate)
+                        st.session_state.ignore_input_key += 1
+                        st.rerun()
+
+            if st.session_state.ignore_draft:
+                st.write("Current ignore list:")
+                for idx, ignore_str in enumerate(st.session_state.ignore_draft):
+                    row_col1, row_col2 = st.columns([5, 1])
+                    with row_col1:
+                        st.text(ignore_str)
+                    with row_col2:
+                        if st.button(
+                            "Remove",
+                            key=f"remove_ignore_{idx}",
+                            use_container_width=True,
+                        ):
+                            draft = list(st.session_state.ignore_draft)
+                            draft.pop(idx)
+                            st.session_state.ignore_draft = draft
+                            st.rerun()
+            else:
+                st.info("No ignore strings yet. Add substrings to exclude from analysis.")
+
+            save_col1, save_col2 = st.columns([1, 3])
+            with save_col1:
+                if st.button("💾 Save ignore list", use_container_width=True):
+                    if save_ignore_strings(st.session_state.ignore_draft):
+                        st.session_state.ignore_draft = load_ignore_strings()
+                        st.success("Ignore list saved.")
+                        st.rerun()
+                    else:
+                        st.error("Failed to save ignore list.")
+            with save_col2:
+                if st.button("🔄 Reset ignore list", use_container_width=True):
+                    st.session_state.ignore_draft = load_ignore_strings()
+                    st.rerun()
+
         # Preview section
         st.divider()
 
@@ -164,6 +248,8 @@ def render_main_tab(tab1):
             st.session_state.summary_df = None
         if 'remaining_df' not in st.session_state:
             st.session_state.remaining_df = None
+        if 'ignored_df' not in st.session_state:
+            st.session_state.ignored_df = None
 
         # Run Analysis Button
         if st.button("▶️ Run Analysis", type="primary", use_container_width=True):
@@ -171,6 +257,7 @@ def render_main_tab(tab1):
                 with st.spinner("Processing transactions..."):
                     # Load the current search strings from config
                     SEARCH_STRINGS = load_config()
+                    IGNORE_STRINGS = load_ignore_strings()
                     
                     if not SEARCH_STRINGS:
                         st.warning("⚠️ No search strings configured. Please add categories in the Configuration Editor above.")
@@ -184,14 +271,17 @@ def render_main_tab(tab1):
                             parse_dates=True,
                             sort_by_date=False
                         )
+
+                        # Step 2: Filter out ignored descriptions before categorization
+                        df, ignored_df = filter_ignored_descriptions(df, IGNORE_STRINGS)
                         
-                        # Step 2: Process search strings
+                        # Step 3: Process search strings
                         summed_transactions, remaining_df = process_search_strings(df, SEARCH_STRINGS)
                         
-                        # Step 3: Create visualizations
+                        # Step 4: Create visualizations
                         fig = create_sunburst_chart(summed_transactions)
                         
-                        # Step 4: Create summary table
+                        # Step 5: Create summary table
                         summary_df = create_expense_table(summed_transactions)
                         
                         # Store results in session state
@@ -199,6 +289,7 @@ def render_main_tab(tab1):
                         st.session_state.fig = fig
                         st.session_state.summary_df = summary_df
                         st.session_state.remaining_df = remaining_df
+                        st.session_state.ignored_df = ignored_df
                         
                         st.success("✅ Analysis completed successfully!")
                         
@@ -251,6 +342,38 @@ def render_main_tab(tab1):
                     "Amount": st.column_config.TextColumn("Amount", width="medium")
                 }
             )
+
+            # Display ignored transactions (excluded from totals)
+            st.divider()
+            st.subheader("Ignored Transactions")
+            st.write(
+                "These transactions matched an ignore string and were excluded from "
+                "the sunburst, summary table, and grand total."
+            )
+
+            if st.session_state.ignored_df is not None and not st.session_state.ignored_df.empty:
+                ignored_count = len(st.session_state.ignored_df)
+                ignored_total = abs(st.session_state.ignored_df['Amount'].abs().sum())
+
+                ign_col1, ign_col2 = st.columns(2)
+                with ign_col1:
+                    st.metric("Number of Transactions", ignored_count)
+                with ign_col2:
+                    st.metric("Total Amount", f"${ignored_total:,.2f}")
+
+                st.dataframe(
+                    st.session_state.ignored_df,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "Source": st.column_config.TextColumn("Source", width="medium"),
+                        "Date": st.column_config.DateColumn("Date", width="small"),
+                        "Amount": st.column_config.NumberColumn("Amount", format="$%.2f", width="small"),
+                        "Description": st.column_config.TextColumn("Description", width="large")
+                    }
+                )
+            else:
+                st.info("No transactions were ignored for this analysis run.")
             
             # Display uncategorized transactions
             st.divider()

@@ -5,7 +5,15 @@ from plaid_ui import clear_plaid_session_keys
 
 def clear_analysis_results():
     """Clear all analysis results from session state"""
-    keys_to_clear = ['analysis_results', 'fig', 'summary_df', 'remaining_df']
+    keys_to_clear = [
+        'analysis_results',
+        'fig',
+        'summary_df',
+        'remaining_df',
+        'ignored_df',
+        'ignore_draft',
+        'ignore_input_key',
+    ]
     for key in keys_to_clear:
         if key in st.session_state:
             del st.session_state[key]

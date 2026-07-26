@@ -50,6 +50,52 @@ def split_dataframe_by_search(df, column_name, search_string):
     return df_contains, df_not_contains
 
 
+def filter_ignored_descriptions(df, ignore_strings):
+    """
+    Remove transactions whose Description contains any ignore substring.
+
+    Matching is case-insensitive substring search, same as category keywords.
+    Matching rows are excluded entirely from analysis totals.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Transaction data with a Description column.
+    ignore_strings : list
+        Substrings to filter out. Empty or None leaves df unchanged.
+
+    Returns
+    -------
+    tuple of (pandas.DataFrame, pandas.DataFrame)
+        kept_df: rows that should proceed to categorization
+        ignored_df: rows filtered out (empty if nothing matched)
+    """
+    if df is None or df.empty:
+        empty = df.copy() if df is not None else pd.DataFrame()
+        return empty, empty.copy()
+
+    if not ignore_strings:
+        return df.copy(), df.iloc[0:0].copy()
+
+    cleaned = [
+        s.strip() for s in ignore_strings
+        if isinstance(s, str) and s.strip()
+    ]
+    if not cleaned:
+        return df.copy(), df.iloc[0:0].copy()
+
+    search_column = df["Description"].astype(str)
+    mask = pd.Series(False, index=df.index)
+    for ignore_string in cleaned:
+        mask = mask | search_column.str.contains(
+            ignore_string, case=False, na=False, regex=False
+        )
+
+    ignored_df = df[mask].copy()
+    kept_df = df[~mask].copy()
+    return kept_df.reset_index(drop=True), ignored_df.reset_index(drop=True)
+
+
 def summarize_search_category(df: pd.DataFrame, search_string: str) -> Tuple[pd.DataFrame, float]:
     """
     Summarize transactions matching a search category and return filtered data with total amount.

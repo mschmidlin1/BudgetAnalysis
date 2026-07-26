@@ -87,6 +87,10 @@ def render_info_tab(tab):
         
         4. **Save Changes**: Click the "Save" button in the editor or press Ctrl+S
         
+        5. **Ignore strings** (optional): Open the **Ignored description strings** expander to
+           add substrings that should be filtered out before analysis. Matching transactions
+           are excluded from the sunburst, summary table, and grand total.
+        
         > 💡 **Tip**: Use the "Copy-Friendly List" view in the analysis results to easily find 
         > descriptions for uncategorized transactions!
         
@@ -101,6 +105,7 @@ def render_info_tab(tab):
         2. **View Results**: You'll see:
            - **Interactive Sunburst Chart**: Visual breakdown of spending by category
            - **Expense Summary Table**: Detailed amounts for each category and subcategory
+           - **Ignored Transactions**: Transactions excluded by your ignore list (not in totals)
            - **Uncategorized Transactions**: List of transactions that didn't match any category
         
         3. **Export Results**: Choose from multiple export formats:

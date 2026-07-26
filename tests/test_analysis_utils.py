@@ -1,4 +1,4 @@
-"""Unit tests for analysis date filtering."""
+"""Unit tests for analysis date filtering and ignore-string filtering."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from datetime import date
 
 import pandas as pd
 
-from analysis_utils import filter_transactions_by_date
+from analysis_utils import filter_ignored_descriptions, filter_transactions_by_date
 
 
 class FilterTransactionsByDateTests(unittest.TestCase):
@@ -85,6 +85,85 @@ class MixedDateParsingTests(unittest.TestCase):
                 pd.Timestamp("2026-01-15"),
             ],
         )
+
+
+class FilterIgnoredDescriptionsTests(unittest.TestCase):
+    def setUp(self):
+        self.df = pd.DataFrame(
+            {
+                "Source": ["a.csv", "a.csv", "a.csv", "a.csv"],
+                "Date": ["2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04"],
+                "Amount": [-10.0, -20.0, -30.0, -40.0],
+                "Description": [
+                    "WEGMANS GROCERY",
+                    "PAYMENT THANK YOU",
+                    "VENMO CASHOUT",
+                    "TARGET STORE",
+                ],
+            }
+        )
+
+    def test_ignores_matching_rows(self):
+        kept, ignored = filter_ignored_descriptions(
+            self.df, ["PAYMENT THANK YOU"]
+        )
+        self.assertEqual(kept["Description"].tolist(), [
+            "WEGMANS GROCERY",
+            "VENMO CASHOUT",
+            "TARGET STORE",
+        ])
+        self.assertEqual(ignored["Description"].tolist(), ["PAYMENT THANK YOU"])
+
+    def test_case_insensitive_match(self):
+        kept, ignored = filter_ignored_descriptions(self.df, ["payment thank you"])
+        self.assertEqual(len(ignored), 1)
+        self.assertEqual(ignored["Description"].iloc[0], "PAYMENT THANK YOU")
+        self.assertEqual(len(kept), 3)
+
+    def test_empty_ignore_list_unchanged(self):
+        kept, ignored = filter_ignored_descriptions(self.df, [])
+        self.assertEqual(len(kept), 4)
+        self.assertTrue(ignored.empty)
+
+        kept_none, ignored_none = filter_ignored_descriptions(self.df, None)
+        self.assertEqual(len(kept_none), 4)
+        self.assertTrue(ignored_none.empty)
+
+    def test_multiple_ignore_strings(self):
+        kept, ignored = filter_ignored_descriptions(
+            self.df, ["PAYMENT", "VENMO"]
+        )
+        self.assertEqual(kept["Description"].tolist(), [
+            "WEGMANS GROCERY",
+            "TARGET STORE",
+        ])
+        self.assertEqual(sorted(ignored["Description"].tolist()), [
+            "PAYMENT THANK YOU",
+            "VENMO CASHOUT",
+        ])
+
+    def test_overlapping_matches_once(self):
+        """A row matching multiple ignore strings appears once in ignored_df."""
+        kept, ignored = filter_ignored_descriptions(
+            self.df, ["PAYMENT", "THANK YOU"]
+        )
+        self.assertEqual(len(ignored), 1)
+        self.assertEqual(ignored["Description"].iloc[0], "PAYMENT THANK YOU")
+        self.assertEqual(len(kept), 3)
+
+    def test_literal_special_characters(self):
+        """Ignore strings are literal substrings, not regex."""
+        df = pd.DataFrame(
+            {
+                "Source": ["a.csv", "a.csv"],
+                "Date": ["2026-01-01", "2026-01-02"],
+                "Amount": [-10.0, -20.0],
+                "Description": ["PARAMOUNT+", "PARAMOUNTX"],
+            }
+        )
+        kept, ignored = filter_ignored_descriptions(df, ["PARAMOUNT+"])
+        self.assertEqual(ignored["Description"].tolist(), ["PARAMOUNT+"])
+        self.assertEqual(kept["Description"].tolist(), ["PARAMOUNTX"])
 
 
 if __name__ == "__main__":
