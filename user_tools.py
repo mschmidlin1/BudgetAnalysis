@@ -253,7 +253,7 @@ def initialize_user_config(username):
                 with open('default_config.json', 'r') as f:
                     default_config = json.load(f)
             except FileNotFoundError:
-                default_config = {"search_strings": []}
+                default_config = {"search_strings": [], "ignore_strings": []}
             
             save_json(default_config, config_key)
         
