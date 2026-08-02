@@ -37,12 +37,18 @@ Legacy Streamlit Cloud (until retired):
    ```bash
    mkdir -p data
    export BUDGET_STORAGE_ROOT="$(pwd)/data"
-   streamlit run main.py
+   export PYTHONPATH=src
+   streamlit run src/app.py
    ```
 
    Or use Docker Compose (mounts `./data` at `/data`):
    ```bash
    docker compose up --build
+   ```
+
+4. Run unit tests (from the repo root, with the venv active):
+   ```bash
+   PYTHONPATH=src python -m unittest discover -s tests -v
    ```
 
 ## Usage

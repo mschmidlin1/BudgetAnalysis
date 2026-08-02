@@ -1,6 +1,6 @@
 import streamlit as st
 
-from plaid_ui import clear_plaid_session_keys
+from ui.plaid_ui import clear_plaid_session_keys
 
 
 def clear_analysis_results():

@@ -6,7 +6,7 @@ import unittest
 
 import pandas as pd
 
-from user_tools import (
+from storage.user_tools import (
     add_user_to_dataframe,
     normalize_users_dataframe,
     update_user_in_dataframe,

@@ -1,10 +1,11 @@
+from pathlib import Path
+
 import streamlit as st
 import pandas as pd
 import json
-import os
-from configs import USERS_WORKSHEET
+from config.settings import USERS_WORKSHEET
 from streamlit_gsheets import GSheetsConnection
-from storage_utils import (
+from storage.storage_utils import (
     get_user_prefix,
     get_config_prefix,
     get_uploads_prefix,
@@ -14,6 +15,8 @@ from storage_utils import (
     get_path_for_config,
     get_path_for_upload,
 )
+
+_ASSETS_DIR = Path(__file__).resolve().parents[1] / "assets"
 
 
 #region Google Sheets Connection
@@ -249,8 +252,9 @@ def initialize_user_config(username):
         existing_config = load_json(config_key)
         
         if not existing_config:
+            default_config_path = _ASSETS_DIR / "default_config.json"
             try:
-                with open('default_config.json', 'r') as f:
+                with open(default_config_path, 'r') as f:
                     default_config = json.load(f)
             except FileNotFoundError:
                 default_config = {"search_strings": [], "ignore_strings": []}
@@ -261,11 +265,11 @@ def initialize_user_config(username):
         
         if not existing_upload_config:
             sample_csv_name = "sample_transactions.csv"
-            sample_csv_source = sample_csv_name
+            sample_csv_source = _ASSETS_DIR / sample_csv_name
             
-            if os.path.exists(sample_csv_source):
+            if sample_csv_source.exists():
                 sample_key = get_path_for_upload(username, sample_csv_name)
-                copy_file(sample_csv_source, sample_key)
+                copy_file(str(sample_csv_source), sample_key)
                 
                 sample_file_mapping = {
                     sample_csv_name: ["Transaction Date", "Amount", "Description"]

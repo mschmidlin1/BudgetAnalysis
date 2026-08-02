@@ -28,8 +28,8 @@ from plaid.model.transactions_sync_request import TransactionsSyncRequest
 
 logger = logging.getLogger(__name__)
 
-from analysis_utils import filter_transactions_by_date
-from storage_utils import (
+from analysis.analysis_utils import filter_transactions_by_date
+from storage.storage_utils import (
     delete,
     exists,
     get_path_for_config,

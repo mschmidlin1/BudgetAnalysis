@@ -6,8 +6,8 @@ import plotly.express as px
 from IPython.display import display
 from pathlib import Path
 import io
-from storage_utils import read_bytes, get_path_for_upload
-from user_tools import get_username
+from storage.storage_utils import read_bytes, get_path_for_upload
+from storage.user_tools import get_username
 
 
 

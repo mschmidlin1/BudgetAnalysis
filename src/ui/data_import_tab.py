@@ -4,7 +4,7 @@ from code_editor import code_editor
 import pandas as pd
 from pathlib import Path
 import io
-from user_tools import (
+from storage.user_tools import (
     save_credentials,
     get_username,
     get_user_upload_dir,
@@ -12,7 +12,7 @@ from user_tools import (
     get_user_upload_config_file
 )
 
-from upload_tools import (
+from storage.upload_tools import (
     ensure_upload_dir,
     save_upload_config,
     save_uploaded_file,
@@ -21,18 +21,18 @@ from upload_tools import (
     clear_all_uploads
 )
 
-from storage_utils import (
+from storage.storage_utils import (
     read_bytes,
     get_path_for_upload
 )
 
-from config_tools import (
+from storage.config_tools import (
     load_config,
     load_upload_config,
     save_upload_config,
     save_config
 )
-from analysis_utils import (
+from analysis.analysis_utils import (
     combine_transaction_files,
     split_dataframe_by_search,
     summarize_search_category,
@@ -42,7 +42,7 @@ from analysis_utils import (
     display_expense_table,
     export_expense_table,
     create_html_report)
-from plaid_ui import render_plaid_import
+from ui.plaid_ui import render_plaid_import
 
 
 

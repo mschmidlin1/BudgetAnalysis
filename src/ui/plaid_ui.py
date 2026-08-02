@@ -8,8 +8,8 @@ from typing import Any, MutableMapping, Optional
 
 import streamlit as st
 
-from plaid_link_component import plaid_link
-from plaid_service import (
+from plaid_integration.plaid_link_component import plaid_link
+from plaid_integration.plaid_service import (
     MAX_TRANSACTION_HISTORY_DAYS,
     PlaidConfigurationError,
     PlaidSettings,
@@ -25,7 +25,7 @@ from plaid_service import (
     set_date_filter,
     sync_transactions,
 )
-from user_tools import get_username
+from storage.user_tools import get_username
 
 
 class PendingLinkError(ValueError):

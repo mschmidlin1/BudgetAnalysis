@@ -90,9 +90,9 @@ When a visitor opens `https://budget-analysis.schmidlin.casa`:
 
 | Item | Location | Notes |
 |------|----------|-------|
-| **App code** | `main.py`, `*_tab.py`, `user_tools.py`, `storage_utils.py`, … | Entry point is `main.py` at repo root |
+| **App code** | `src/app.py`, `src/ui/`, `src/storage/`, … | Entry point is `src/app.py` |
 | **Dependencies** | `requirements.txt` | Streamlit, pandas, plotly, gspread |
-| **Default configs** | `default_config.json`, `sample_transactions.csv` | Seeded into `/data` for new users |
+| **Default configs** | `src/assets/default_config.json`, `src/assets/sample_transactions.csv` | Seeded into `/data` for new users |
 | **Secrets template** | `.streamlit/secrets.toml.example` | Sheets + cookie |
 | **Storage** | NFS PV/PVC → `/data` | See [NFS_setup.md](NFS_setup.md) |
 | **GitHub repo** | `github.com/mschmidlin1/BudgetAnalysis` | Synced with local |
@@ -139,7 +139,8 @@ cd ~/source/BudgetAnalysis
 source .venv/bin/activate
 mkdir -p data
 export BUDGET_STORAGE_ROOT="$(pwd)/data"
-streamlit run main.py
+export PYTHONPATH=src
+streamlit run src/app.py
 ```
 
 Open `http://localhost:8501`. Confirm login, registration, CSV upload, and the sunburst chart work.
@@ -184,11 +185,12 @@ RUN mkdir -p /app/.streamlit
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY *.py .
-COPY default_config.json sample_transactions.csv example_nested_config.json ./
+COPY src ./src
+
+ENV PYTHONPATH=/app/src
 
 EXPOSE 8501
-CMD ["streamlit", "run", "main.py", "--server.address=0.0.0.0", "--server.port=8501"]
+CMD ["streamlit", "run", "src/app.py", "--server.address=0.0.0.0", "--server.port=8501"]
 ```
 
 **`.dockerignore`**
@@ -519,7 +521,7 @@ Add `url: "https://budget-analysis.schmidlin.casa"` to [Valhalla `links.js`](htt
 
 | | Local | Production |
 |---|-------|------------|
-| **Run** | `streamlit run main.py` or `docker compose up --build` | k8s pod on Valhalla |
+| **Run** | `PYTHONPATH=src streamlit run src/app.py` or `docker compose up --build` | k8s pod on Valhalla |
 | **URL** | `http://localhost:8501` | `https://budget-analysis.schmidlin.casa` |
 | **Secrets** | `.streamlit/secrets.toml` on disk | K8s Secret mounted in pod |
 | **File storage** | `./data` or `BUDGET_STORAGE_ROOT` | NFS PVC at `/data` |

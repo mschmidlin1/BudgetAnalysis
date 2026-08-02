@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-import plaid_ui
+from ui import plaid_ui
 
 
 class PendingLinkExchangeTests(unittest.TestCase):

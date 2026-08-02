@@ -1,5 +1,5 @@
 import streamlit as st
-from user_tools import save_credentials, initialize_user_config, load_users_dataframe, dataframe_to_config
+from storage.user_tools import save_credentials, initialize_user_config, load_users_dataframe, dataframe_to_config
 
 
 def render_login(config, authenticator):

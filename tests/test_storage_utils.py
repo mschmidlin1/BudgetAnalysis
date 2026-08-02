@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import storage_utils
+from storage import storage_utils
 
 
 class StorageUtilsTests(unittest.TestCase):

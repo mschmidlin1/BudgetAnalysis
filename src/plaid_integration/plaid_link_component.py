@@ -10,7 +10,7 @@ import streamlit.components.v1 as components
 
 _component = components.declare_component(
     "budget_analysis_plaid_link",
-    path=str(Path(__file__).parent / "plaid_link_frontend"),
+    path=str(Path(__file__).parent / "frontend"),
 )
 
 

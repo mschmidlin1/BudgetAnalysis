@@ -2,7 +2,7 @@ import streamlit as st
 import json
 from code_editor import code_editor
 import pandas as pd
-from user_tools import (
+from storage.user_tools import (
     save_credentials,
     get_username,
     get_user_upload_dir,
@@ -10,7 +10,7 @@ from user_tools import (
     get_user_upload_config_file
 )
 
-from upload_tools import (
+from storage.upload_tools import (
     ensure_upload_dir,
     save_upload_config,
     save_uploaded_file,
@@ -19,7 +19,7 @@ from upload_tools import (
     clear_all_uploads
 )
 
-from config_tools import (
+from storage.config_tools import (
     load_config,
     load_upload_config,
     load_ignore_strings,
@@ -27,7 +27,7 @@ from config_tools import (
     save_config,
     save_ignore_strings
 )
-from analysis_utils import (
+from analysis.analysis_utils import (
     combine_transaction_files,
     split_dataframe_by_search,
     summarize_search_category,

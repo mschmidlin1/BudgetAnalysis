@@ -7,7 +7,7 @@ from datetime import date
 
 import pandas as pd
 
-from analysis_utils import filter_ignored_descriptions, filter_transactions_by_date
+from analysis.analysis_utils import filter_ignored_descriptions, filter_transactions_by_date
 
 
 class FilterTransactionsByDateTests(unittest.TestCase):

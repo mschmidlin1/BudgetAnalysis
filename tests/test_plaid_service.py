@@ -14,8 +14,8 @@ from unittest import mock
 from cryptography.fernet import Fernet
 import pandas as pd
 
-import plaid_service
-import storage_utils
+from plaid_integration import plaid_service
+from storage import storage_utils
 
 
 class FakePlaidClient:

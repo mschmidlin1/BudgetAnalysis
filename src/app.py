@@ -8,14 +8,14 @@ import json
 from code_editor import code_editor
 import streamlit_authenticator as stauth
 
-from login import render_login
-from data_import_tab import render_data_import_tab
-from main_tab import render_main_tab
-from info_tab import render_info_tab
-from sidebar import render_sidebar
+from ui.login import render_login
+from ui.data_import_tab import render_data_import_tab
+from ui.main_tab import render_main_tab
+from ui.info_tab import render_info_tab
+from ui.sidebar import render_sidebar
 
-from configs import get_cookie_config
-from user_tools import load_users_dataframe, dataframe_to_config
+from config.settings import get_cookie_config
+from storage.user_tools import load_users_dataframe, dataframe_to_config
 
 
 # Load authentication configuration from Google Sheets
