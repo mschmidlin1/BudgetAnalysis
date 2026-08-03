@@ -89,11 +89,11 @@ class MutationHelperTests(unittest.TestCase):
 
     def test_add_category_and_keyword_at_paths(self):
         add_category(self.root, [], "Pets")
-        self.assertEqual(self.root[-1], {"Pets": []})
-        add_keyword(self.root, [2], "CHEWY")
-        self.assertEqual(get_children_list(self.root, [2]), ["CHEWY"])
-        add_category(self.root, [0], "Parking")
-        self.assertEqual(get_children_list(self.root, [0])[-1], {"Parking": []})
+        self.assertEqual(self.root[0], {"Pets": []})
+        add_keyword(self.root, [0], "CHEWY")
+        self.assertEqual(get_children_list(self.root, [0]), ["CHEWY"])
+        add_category(self.root, [1], "Parking")
+        self.assertEqual(get_children_list(self.root, [1])[0], {"Parking": []})
 
     def test_rename_category(self):
         rename_category(self.root, [0], 0, "Fuel")
@@ -128,7 +128,7 @@ class MutationHelperTests(unittest.TestCase):
         payload = json.loads((_ASSETS / "example_nested_config.json").read_text(encoding="utf-8"))
         draft = copy.deepcopy(payload["search_strings"])
         add_keyword(draft, [], "NEW_ROOT_KW")
-        delete_item(draft, [], len(draft) - 1)
+        delete_item(draft, [], 0)
         self.assertEqual(draft, payload["search_strings"])
         ok, msg = validate_search_strings(draft)
         self.assertTrue(ok, msg)

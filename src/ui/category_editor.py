@@ -85,14 +85,14 @@ def add_category(root: list, path: Path, name: str) -> None:
     name = name.strip()
     if not name:
         raise ValueError("Category name cannot be empty")
-    get_children_list(root, path).append({name: []})
+    get_children_list(root, path).insert(0, {name: []})
 
 
 def add_keyword(root: list, path: Path, keyword: str) -> None:
     keyword = keyword.strip()
     if not keyword:
         raise ValueError("Keyword cannot be empty")
-    get_children_list(root, path).append(keyword)
+    get_children_list(root, path).insert(0, keyword)
 
 
 def delete_item(root: list, path: Path, index: int) -> None:
@@ -154,119 +154,97 @@ def _bump_ui() -> None:
     st.session_state.config_key = st.session_state.get("config_key", 0) + 1
 
 
-def _render_add_controls(path: Path, ui_key: int) -> None:
-    pk = _path_key(path)
-    st.markdown("**Add**")
-    cat_col1, cat_col2 = st.columns([4, 1])
-    with cat_col1:
-        new_cat = st.text_input(
-            "New category name",
-            value="",
-            placeholder="Category name",
-            key=f"add_cat_name_{ui_key}_{pk}",
-            label_visibility="collapsed",
-        )
-    with cat_col2:
-        if st.button("Add category", key=f"add_cat_btn_{ui_key}_{pk}", use_container_width=True):
-            try:
-                add_category(st.session_state.category_draft, path, new_cat or "")
-                _bump_ui()
-                st.rerun()
-            except ValueError as exc:
-                st.error(str(exc))
-
-    kw_col1, kw_col2 = st.columns([4, 1])
-    with kw_col1:
-        new_kw = st.text_input(
-            "New keyword",
-            value="",
-            placeholder="Keyword / search string",
-            key=f"add_kw_text_{ui_key}_{pk}",
-            label_visibility="collapsed",
-        )
-    with kw_col2:
-        if st.button("Add keyword", key=f"add_kw_btn_{ui_key}_{pk}", use_container_width=True):
-            try:
-                add_keyword(st.session_state.category_draft, path, new_kw or "")
-                _bump_ui()
-                st.rerun()
-            except ValueError as exc:
-                st.error(str(exc))
-
-
 def _render_nodes(path: Path, ui_key: int) -> None:
     children = get_children_list(st.session_state.category_draft, path)
     pk = _path_key(path)
 
+    categories = [
+        (index, item)
+        for index, item in enumerate(children)
+        if isinstance(item, dict) and len(item) == 1
+    ]
+    keywords = [
+        (index, item)
+        for index, item in enumerate(children)
+        if isinstance(item, str)
+    ]
+
     if not children:
         st.caption("No categories or keywords here yet.")
 
-    for index, item in enumerate(list(children)):
+    if st.button("➕ Add keyword", key=f"add_kw_btn_{ui_key}_{pk}"):
+        add_keyword(st.session_state.category_draft, path, "NEW")
+        _bump_ui()
+        st.rerun()
+
+    for index, item in keywords:
+        item_key = f"{ui_key}_{pk}_{index}"
+        kw_col, del_col = st.columns([5, 1])
+        with kw_col:
+            edited = st.text_input(
+                "Keyword",
+                value=item,
+                key=f"kw_edit_{item_key}",
+                label_visibility="collapsed",
+            )
+        with del_col:
+            if st.button("Delete", key=f"del_kw_{item_key}", use_container_width=True):
+                delete_item(st.session_state.category_draft, path, index)
+                _bump_ui()
+                st.rerun()
+
+        if edited is not None and edited.strip() and edited.strip() != item:
+            update_keyword(
+                st.session_state.category_draft, path, index, edited
+            )
+
+    if st.button("📁 New", key=f"add_cat_btn_{ui_key}_{pk}"):
+        add_category(st.session_state.category_draft, path, "NEW FOLDER")
+        _bump_ui()
+        st.rerun()
+
+    for index, item in categories:
         child_path = list(path) + [index]
         item_key = f"{ui_key}_{pk}_{index}"
-
-        if isinstance(item, dict) and len(item) == 1:
-            name, _sub = next(iter(item.items()))
-            with st.expander(f"📁 {name}", expanded=False):
-                rename_col, apply_col, delete_col = st.columns([3, 1, 1])
-                with rename_col:
-                    renamed = st.text_input(
-                        "Rename category",
-                        value=name,
-                        key=f"rename_cat_{item_key}",
-                        label_visibility="collapsed",
-                    )
-                with apply_col:
-                    if st.button(
-                        "Rename",
-                        key=f"rename_btn_{item_key}",
-                        use_container_width=True,
-                    ):
-                        try:
-                            if (renamed or "").strip() != name:
-                                rename_category(
-                                    st.session_state.category_draft,
-                                    path,
-                                    index,
-                                    renamed or "",
-                                )
-                                _bump_ui()
-                                st.rerun()
-                        except ValueError as exc:
-                            st.error(str(exc))
-                with delete_col:
-                    if st.button(
-                        "Delete",
-                        key=f"del_cat_{item_key}",
-                        use_container_width=True,
-                    ):
-                        delete_item(st.session_state.category_draft, path, index)
-                        _bump_ui()
-                        st.rerun()
-
-                _render_add_controls(child_path, ui_key)
-                st.divider()
-                _render_nodes(child_path, ui_key)
-
-        elif isinstance(item, str):
-            kw_col, del_col = st.columns([5, 1])
-            with kw_col:
-                edited = st.text_input(
-                    "Keyword",
-                    value=item,
-                    key=f"kw_edit_{item_key}",
+        name, _sub = next(iter(item.items()))
+        with st.expander(f"📁 {name}", expanded=False):
+            rename_col, apply_col, delete_col = st.columns([3, 1, 1])
+            with rename_col:
+                renamed = st.text_input(
+                    "Rename category",
+                    value=name,
+                    key=f"rename_cat_{item_key}",
                     label_visibility="collapsed",
                 )
-            with del_col:
-                if st.button("Delete", key=f"del_kw_{item_key}", use_container_width=True):
+            with apply_col:
+                if st.button(
+                    "Rename",
+                    key=f"rename_btn_{item_key}",
+                    use_container_width=True,
+                ):
+                    try:
+                        if (renamed or "").strip() != name:
+                            rename_category(
+                                st.session_state.category_draft,
+                                path,
+                                index,
+                                renamed or "",
+                            )
+                            _bump_ui()
+                            st.rerun()
+                    except ValueError as exc:
+                        st.error(str(exc))
+            with delete_col:
+                if st.button(
+                    "Delete",
+                    key=f"del_cat_{item_key}",
+                    use_container_width=True,
+                ):
                     delete_item(st.session_state.category_draft, path, index)
                     _bump_ui()
                     st.rerun()
 
-            if edited is not None and edited.strip() and edited.strip() != item:
-                update_keyword(
-                    st.session_state.category_draft, path, index, edited
-                )
+            _render_nodes(child_path, ui_key)
 
 
 def render_category_editor() -> None:
@@ -306,7 +284,5 @@ def render_category_editor() -> None:
             refresh_category_draft_from_storage()
             st.rerun()
 
-    st.divider()
-    _render_add_controls([], ui_key)
     st.divider()
     _render_nodes([], ui_key)
