@@ -505,7 +505,6 @@ def export_expense_table(expense_summary, filename='expense_summary', formats=['
         csv_file = f'{filename}.csv'
         df_export.to_csv(csv_file, index=False)
         exported_files['csv'] = csv_file
-        print(f"✓ Exported to {csv_file}")
     
     if 'excel' in formats:
         excel_file = f'{filename}.xlsx'
@@ -522,7 +521,6 @@ def export_expense_table(expense_summary, filename='expense_summary', formats=['
                 worksheet.column_dimensions[chr(65 + idx)].width = max_length
         
         exported_files['excel'] = excel_file
-        print(f"✓ Exported to {excel_file}")
     
     if 'html' in formats:
         html_file = f'{filename}.html'
@@ -564,13 +562,11 @@ def export_expense_table(expense_summary, filename='expense_summary', formats=['
         
         styled_html.to_html(html_file)
         exported_files['html'] = html_file
-        print(f"✓ Exported to {html_file}")
     
     if 'markdown' in formats:
         md_file = f'{filename}.md'
         df_export.to_markdown(md_file, index=False)
         exported_files['markdown'] = md_file
-        print(f"✓ Exported to {md_file}")
     
     return exported_files
 
@@ -740,7 +736,6 @@ def create_html_report(expense_summary, fig, filename='expense_report.html'):
     with open(filename, 'w', encoding='utf-8') as f:
         f.write(html_content)
     
-    print(f"✓ HTML report exported to {filename}")
     return filename
 
 

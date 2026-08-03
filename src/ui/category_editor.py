@@ -175,7 +175,7 @@ def _render_nodes(path: Path, ui_key: int) -> None:
     if st.button("➕ Add keyword", key=f"add_kw_btn_{ui_key}_{pk}"):
         add_keyword(st.session_state.category_draft, path, "NEW")
         _bump_ui()
-        st.rerun()
+        st.rerun(scope="fragment")
 
     for index, item in keywords:
         item_key = f"{ui_key}_{pk}_{index}"
@@ -191,7 +191,7 @@ def _render_nodes(path: Path, ui_key: int) -> None:
             if st.button("Delete", key=f"del_kw_{item_key}", use_container_width=True):
                 delete_item(st.session_state.category_draft, path, index)
                 _bump_ui()
-                st.rerun()
+                st.rerun(scope="fragment")
 
         if edited is not None and edited.strip() and edited.strip() != item:
             update_keyword(
@@ -201,7 +201,7 @@ def _render_nodes(path: Path, ui_key: int) -> None:
     if st.button("📁 New", key=f"add_cat_btn_{ui_key}_{pk}"):
         add_category(st.session_state.category_draft, path, "NEW FOLDER")
         _bump_ui()
-        st.rerun()
+        st.rerun(scope="fragment")
 
     for index, item in categories:
         child_path = list(path) + [index]
@@ -231,7 +231,7 @@ def _render_nodes(path: Path, ui_key: int) -> None:
                                 renamed or "",
                             )
                             _bump_ui()
-                            st.rerun()
+                            st.rerun(scope="fragment")
                     except ValueError as exc:
                         st.error(str(exc))
             with delete_col:
@@ -242,7 +242,7 @@ def _render_nodes(path: Path, ui_key: int) -> None:
                 ):
                     delete_item(st.session_state.category_draft, path, index)
                     _bump_ui()
-                    st.rerun()
+                    st.rerun(scope="fragment")
 
             _render_nodes(child_path, ui_key)
 
@@ -310,8 +310,13 @@ def _render_save_reset_toolbar() -> None:
                 st.rerun()
 
 
+@st.fragment
 def render_category_editor() -> None:
-    """Render the visual category editor with Save / Reset toolbar."""
+    """Render the visual category editor with Save / Reset toolbar.
+
+    Fragment-scoped so keyword/category edits do not rerun the full app.
+    Save / Reset still trigger a full ``st.rerun()`` to sync the JSON editor.
+    """
     ensure_category_draft()
     ui_key = st.session_state.category_ui_key
 
