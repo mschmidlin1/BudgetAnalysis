@@ -72,24 +72,33 @@ def render_info_tab(tab):
         
         Go to the **📊 Main** tab to set up your spending categories:
         
-        1. **Edit Configuration**: Use the JSON editor to define your categories and keywords
+        1. **Category Editor** (default): Use the visual tree to add, rename, and delete
+           nested categories and keywords — no JSON required
         
-        2. **Category Structure**: Categories are defined as JSON objects with keywords:
+        2. **JSON Editor** (advanced): Switch to the JSON Editor tab if you prefer editing
+           the raw configuration file
+        
+        3. **Category Structure**: Categories can nest infinitely. Keywords are search strings
+           matched against transaction descriptions:
            ```json
            {
-               "Groceries": ["WHOLE FOODS", "TRADER JOE", "SAFEWAY"],
-               "Dining": ["RESTAURANT", "CAFE", "STARBUCKS"]
+               "Shopping": [
+                   {"Groceries": ["WHOLE FOODS", "TRADER JOE"]},
+                   {"Dining": ["RESTAURANT", "STARBUCKS"]}
+               ]
            }
            ```
         
-        3. **Keyword Matching**: The app searches transaction descriptions for your keywords 
+        4. **Keyword Matching**: The app searches transaction descriptions for your keywords 
            (case-insensitive, partial matches)
         
-        4. **Save Changes**: Click the "Save" button in the editor or press Ctrl+S
+        5. **Save Changes**: Click **Save** in the Category Editor (or Save in the JSON editor)
+           when you are ready to persist changes
         
-        5. **Ignore strings** (optional): Open the **Ignored description strings** expander to
-           add substrings that should be filtered out before analysis. Matching transactions
-           are excluded from the sunburst, summary table, and grand total.
+        6. **Ignore strings** (optional): Below the category editor tabs, use the
+           **Ignored Description Strings** section to add substrings that should be
+           filtered out before analysis. Matching transactions are excluded from the
+           sunburst, summary table, and grand total.
         
         > 💡 **Tip**: Use the "Copy-Friendly List" view in the analysis results to easily find 
         > descriptions for uncategorized transactions!

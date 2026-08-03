@@ -38,6 +38,91 @@ from analysis.analysis_utils import (
     display_expense_table,
     export_expense_table,
     create_html_report)
+from ui.category_editor import (
+    ensure_category_draft,
+    normalize_search_strings,
+    refresh_category_draft_from_storage,
+    render_category_editor,
+    set_category_draft,
+    validate_search_strings,
+)
+
+
+def _render_json_config_editor():
+    """Render the JSON code editor for search_strings (shared draft)."""
+    EDITOR_SIZES = {
+        "Large Editor": 40,
+        "Small Editor": 15,
+    }
+
+    editor_size_choice = st.radio(
+        "Editor Size:",
+        options=list(EDITOR_SIZES.keys()),
+        index=1,
+        horizontal=True,
+        help="Choose the number of lines visible in the code editor",
+        key="json_config_editor_size",
+    )
+    editor_height = EDITOR_SIZES[editor_size_choice]
+
+    ensure_category_draft()
+    config_json = json.dumps(st.session_state.category_draft, indent=4)
+
+    editor_buttons = [{
+        "name": "Copy",
+        "feather": "Copy",
+        "hasText": True,
+        "alwaysOn": True,
+        "commands": ["copyAll"],
+        "style": {"top": "0.46rem", "right": "0.4rem"},
+    }, {
+        "name": "Save",
+        "feather": "Save",
+        "hasText": True,
+        "alwaysOn": True,
+        "commands": ["submit"],
+        "style": {"top": "0.46rem", "right": "5rem"},
+    }]
+
+    response_dict = code_editor(
+        config_json,
+        lang="json",
+        height=editor_height,
+        theme="default",
+        shortcuts="vscode",
+        focus=False,
+        buttons=editor_buttons,
+        allow_reset=True,
+        key=f"config_editor_{st.session_state.config_key}",
+        options={"wrap": True},
+    )
+
+    # The 'text' field is only populated when a submit event occurs (Save button)
+    if response_dict and response_dict.get("type") == "submit" and response_dict.get("text"):
+        try:
+            new_search_strings = json.loads(response_dict["text"])
+            ok, msg = validate_search_strings(new_search_strings)
+            if not ok:
+                st.error(f"❌ {msg}")
+            else:
+                normalized = normalize_search_strings(new_search_strings)
+                if save_config(normalized):
+                    set_category_draft(normalized)
+                    st.success("✅ Configuration saved successfully!")
+                    st.rerun()
+                else:
+                    st.error("❌ Failed to save configuration")
+        except json.JSONDecodeError as e:
+            st.error(f"❌ Invalid JSON syntax: {str(e)}")
+        except Exception as e:
+            st.error(f"❌ Error saving configuration: {str(e)}")
+
+    col1, _col2 = st.columns([1, 3])
+    with col1:
+        if st.button("🔄 Reset to Saved", key="json_config_editor_reset"):
+            refresh_category_draft_from_storage()
+            st.rerun()
+
 
 def render_main_tab(tab1):
 
@@ -48,183 +133,90 @@ def render_main_tab(tab1):
         st.subheader("Configuration Editor ⚙️")
         st.write("Edit your transaction search categories and keywords")
 
-        # Editor size settings
-        EDITOR_SIZES = {
-            "Large Editor": 40,
-            "Small Editor": 15
-        }
-
-        # User control for editor size
-        editor_size_choice = st.radio(
-            "Editor Size:",
-            options=list(EDITOR_SIZES.keys()),
-            index=1,  # Default to first option: "Large Editor"
-            horizontal=True,
-            help="Choose the number of lines visible in the code editor"
-        )
-
-        editor_height = EDITOR_SIZES[editor_size_choice]
-
-        # Load configuration as Python list
-        search_strings = load_config()
-
-        # Convert to JSON string for editing
-        config_json = json.dumps(search_strings, indent=4)
-
-        # Code editor configuration with syntax highlighting
-        editor_buttons = [{
-            "name": "Copy",
-            "feather": "Copy",
-            "hasText": True,
-            "alwaysOn": True,
-            "commands": ["copyAll"],
-            "style": {"top": "0.46rem", "right": "0.4rem"}
-        }, {
-            "name": "Save",
-            "feather": "Save",
-            "hasText": True,
-            "alwaysOn": True,
-            "commands": ["submit"],
-            "style": {"top": "0.46rem", "right": "5rem"}
-        }]
-
-        # JSON editor with syntax highlighting
-        response_dict = code_editor(
-            config_json,
-            lang="json",
-            height=editor_height,
-            theme="default",
-            shortcuts="vscode",
-            focus=False,
-            buttons=editor_buttons,
-            allow_reset=True,
-            key=f"config_editor_{st.session_state.config_key}",
-            options={"wrap": True}
-        )
-
-        # Handle the code editor response
-        # The 'text' field is only populated when a submit event occurs (Save button in editor)
-        if response_dict and response_dict.get('type') == "submit" and response_dict.get('text'):
-            try:
-                # Parse JSON from the editor
-                new_search_strings = json.loads(response_dict['text'])
-                
-                # Validate structure
-                if not isinstance(new_search_strings, list):
-                    st.error("❌ Configuration must be a JSON list")
-                else:
-                    # Validate each item
-                    valid = True
-                    for item in new_search_strings:
-                        if not isinstance(item, (dict, str)):
-                            st.error("❌ Each item must be either a dictionary (categorized) or string (uncategorized)")
-                            valid = False
-                            break
-                        if isinstance(item, dict):
-                            for key, value in item.items():
-                                if not isinstance(value, list):
-                                    st.error(f"❌ Category '{key}' must have a list of keywords")
-                                    valid = False
-                                    break
-                    
-                    if valid:
-                        # All validation passed
-                        if save_config(new_search_strings):
-                            st.success("✅ Configuration saved successfully!")
-                            st.session_state.config_key += 1  # Reset editor
-                            st.rerun()
-            except json.JSONDecodeError as e:
-                st.error(f"❌ Invalid JSON syntax: {str(e)}")
-            except Exception as e:
-                st.error(f"❌ Error saving configuration: {str(e)}")
-
-        # Reset button
-        col1, col2 = st.columns([1, 3])
-        with col1:
-            if st.button("🔄 Reset to Saved"):
-                st.session_state.config_key += 1  # Change key to force new widget
-                st.rerun()
+        category_tab, json_tab = st.tabs(["Category Editor", "JSON Editor"])
+        with category_tab:
+            render_category_editor()
+        with json_tab:
+            st.caption(
+                "Advanced: edit the raw category JSON. Same data as the Category Editor."
+            )
+            _render_json_config_editor()
 
         # ============================================================================
-        # IGNORE STRINGS (collapsed by default)
+        # IGNORE STRINGS — separate section below category editor tabs
         # ============================================================================
+        st.divider()
+        st.subheader("Ignored Description Strings")
+        st.caption(
+            "Transactions whose Description contains any of these substrings "
+            "are excluded from analysis (case-insensitive). This list is separate "
+            "from the category editors above."
+        )
+
         if 'ignore_draft' not in st.session_state:
             st.session_state.ignore_draft = load_ignore_strings()
         if 'ignore_input_key' not in st.session_state:
             st.session_state.ignore_input_key = 0
 
-        ignore_count = len(st.session_state.ignore_draft)
-        expander_label = (
-            f"Ignored description strings ({ignore_count})"
-            if ignore_count
-            else "Ignored description strings"
-        )
-
-        with st.expander(expander_label, expanded=False):
-            st.caption(
-                "Transactions whose Description contains any of these substrings "
-                "are excluded from analysis (case-insensitive)."
+        add_col1, add_col2 = st.columns([4, 1])
+        with add_col1:
+            new_ignore = st.text_input(
+                "Add ignore string",
+                value="",
+                placeholder="e.g. PAYMENT THANK YOU",
+                label_visibility="collapsed",
+                key=f"ignore_string_input_{st.session_state.ignore_input_key}",
             )
-
-            add_col1, add_col2 = st.columns([4, 1])
-            with add_col1:
-                new_ignore = st.text_input(
-                    "Add ignore string",
-                    value="",
-                    placeholder="e.g. PAYMENT THANK YOU",
-                    label_visibility="collapsed",
-                    key=f"ignore_string_input_{st.session_state.ignore_input_key}",
-                )
-            with add_col2:
-                if st.button("Add", use_container_width=True, key="add_ignore_btn"):
-                    candidate = (new_ignore or "").strip()
-                    if not candidate:
-                        st.warning("Enter a non-empty string to ignore.")
-                    elif any(
-                        s.casefold() == candidate.casefold()
-                        for s in st.session_state.ignore_draft
-                    ):
-                        st.info("That string is already in the ignore list.")
-                    else:
-                        st.session_state.ignore_draft = (
-                            list(st.session_state.ignore_draft) + [candidate]
-                        )
-                        # Remount the text input empty (can't mutate widget state after instantiate)
-                        st.session_state.ignore_input_key += 1
-                        st.rerun()
-
-            if st.session_state.ignore_draft:
-                st.write("Current ignore list:")
-                for idx, ignore_str in enumerate(st.session_state.ignore_draft):
-                    row_col1, row_col2 = st.columns([5, 1])
-                    with row_col1:
-                        st.text(ignore_str)
-                    with row_col2:
-                        if st.button(
-                            "Remove",
-                            key=f"remove_ignore_{idx}",
-                            use_container_width=True,
-                        ):
-                            draft = list(st.session_state.ignore_draft)
-                            draft.pop(idx)
-                            st.session_state.ignore_draft = draft
-                            st.rerun()
-            else:
-                st.info("No ignore strings yet. Add substrings to exclude from analysis.")
-
-            save_col1, save_col2 = st.columns([1, 3])
-            with save_col1:
-                if st.button("💾 Save ignore list", use_container_width=True):
-                    if save_ignore_strings(st.session_state.ignore_draft):
-                        st.session_state.ignore_draft = load_ignore_strings()
-                        st.success("Ignore list saved.")
-                        st.rerun()
-                    else:
-                        st.error("Failed to save ignore list.")
-            with save_col2:
-                if st.button("🔄 Reset ignore list", use_container_width=True):
-                    st.session_state.ignore_draft = load_ignore_strings()
+        with add_col2:
+            if st.button("Add", use_container_width=True, key="add_ignore_btn"):
+                candidate = (new_ignore or "").strip()
+                if not candidate:
+                    st.warning("Enter a non-empty string to ignore.")
+                elif any(
+                    s.casefold() == candidate.casefold()
+                    for s in st.session_state.ignore_draft
+                ):
+                    st.info("That string is already in the ignore list.")
+                else:
+                    st.session_state.ignore_draft = (
+                        list(st.session_state.ignore_draft) + [candidate]
+                    )
+                    # Remount the text input empty (can't mutate widget state after instantiate)
+                    st.session_state.ignore_input_key += 1
                     st.rerun()
+
+        if st.session_state.ignore_draft:
+            st.write("Current ignore list:")
+            for idx, ignore_str in enumerate(st.session_state.ignore_draft):
+                row_col1, row_col2 = st.columns([5, 1])
+                with row_col1:
+                    st.text(ignore_str)
+                with row_col2:
+                    if st.button(
+                        "Remove",
+                        key=f"remove_ignore_{idx}",
+                        use_container_width=True,
+                    ):
+                        draft = list(st.session_state.ignore_draft)
+                        draft.pop(idx)
+                        st.session_state.ignore_draft = draft
+                        st.rerun()
+        else:
+            st.info("No ignore strings yet. Add substrings to exclude from analysis.")
+
+        save_col1, save_col2 = st.columns([1, 3])
+        with save_col1:
+            if st.button("💾 Save ignore list", use_container_width=True):
+                if save_ignore_strings(st.session_state.ignore_draft):
+                    st.session_state.ignore_draft = load_ignore_strings()
+                    st.success("Ignore list saved.")
+                    st.rerun()
+                else:
+                    st.error("Failed to save ignore list.")
+        with save_col2:
+            if st.button("🔄 Reset ignore list", use_container_width=True):
+                st.session_state.ignore_draft = load_ignore_strings()
+                st.rerun()
 
         # Preview section
         st.divider()
