@@ -247,6 +247,69 @@ def _render_nodes(path: Path, ui_key: int) -> None:
             _render_nodes(child_path, ui_key)
 
 
+def _inject_sticky_toolbar_css() -> None:
+    """Pin only the toolbar's layout wrapper; do not sticky large ancestors."""
+    # Streamlit 1.55 wraps keyed containers in stLayoutWrapper. Sticky must be on
+    # that wrapper (direct-child :has) so its parent is the tall editor body.
+    # Sticking the inner block alone fails (parent is only as tall as the toolbar).
+    # Broad ancestor :has() selectors pin whole page sections and cause overlap.
+    st.markdown(
+        """
+<style>
+div[data-testid="stLayoutWrapper"]:has(> div.st-key-category_editor_toolbar) {
+  position: sticky;
+  top: 2.875rem;
+  z-index: 100;
+  background-color: #ffffff;
+  padding-top: 0.25rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid rgba(49, 51, 63, 0.2);
+}
+@media (prefers-color-scheme: dark) {
+  div[data-testid="stLayoutWrapper"]:has(> div.st-key-category_editor_toolbar) {
+    background-color: #0e1117;
+    border-bottom-color: rgba(250, 250, 250, 0.2);
+  }
+}
+</style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _render_save_reset_toolbar() -> None:
+    """Render the sticky Save / Reset toolbar (single instance)."""
+    with st.container(key="category_editor_toolbar", border=True):
+        save_col, reset_col, _ = st.columns([1, 1, 4])
+        with save_col:
+            if st.button(
+                "💾 Save", key="category_editor_save", use_container_width=True
+            ):
+                draft = st.session_state.category_draft
+                ok, msg = validate_search_strings(draft)
+                if not ok:
+                    st.error(f"❌ {msg}")
+                else:
+                    normalized = normalize_search_strings(draft)
+                    try:
+                        if save_config(normalized):
+                            set_category_draft(normalized)
+                            st.success("✅ Configuration saved successfully!")
+                            st.rerun()
+                        else:
+                            st.error("❌ Failed to save configuration")
+                    except Exception as exc:
+                        st.error(f"❌ Error saving configuration: {exc}")
+        with reset_col:
+            if st.button(
+                "🔄 Reset to Saved",
+                key="category_editor_reset",
+                use_container_width=True,
+            ):
+                refresh_category_draft_from_storage()
+                st.rerun()
+
+
 def render_category_editor() -> None:
     """Render the visual category editor with Save / Reset toolbar."""
     ensure_category_draft()
@@ -257,32 +320,10 @@ def render_category_editor() -> None:
         "session until you click Save."
     )
 
-    save_col, reset_col, _ = st.columns([1, 1, 4])
-    with save_col:
-        if st.button("💾 Save", key="category_editor_save", use_container_width=True):
-            draft = st.session_state.category_draft
-            ok, msg = validate_search_strings(draft)
-            if not ok:
-                st.error(f"❌ {msg}")
-            else:
-                normalized = normalize_search_strings(draft)
-                try:
-                    if save_config(normalized):
-                        set_category_draft(normalized)
-                        st.success("✅ Configuration saved successfully!")
-                        st.rerun()
-                    else:
-                        st.error("❌ Failed to save configuration")
-                except Exception as exc:
-                    st.error(f"❌ Error saving configuration: {exc}")
-    with reset_col:
-        if st.button(
-            "🔄 Reset to Saved",
-            key="category_editor_reset",
-            use_container_width=True,
-        ):
-            refresh_category_draft_from_storage()
-            st.rerun()
-
-    st.divider()
-    _render_nodes([], ui_key)
+    # Wrap toolbar + tree so the sticky toolbar's parent is tall enough to pin
+    # while scrolling expanders, without including Ignore/Analysis below.
+    with st.container(key="category_editor_body"):
+        _inject_sticky_toolbar_css()
+        _render_save_reset_toolbar()
+        st.divider()
+        _render_nodes([], ui_key)
