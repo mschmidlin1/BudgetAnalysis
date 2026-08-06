@@ -571,10 +571,11 @@ def export_expense_table(expense_summary, filename='expense_summary', formats=['
     return exported_files
 
 
-def create_html_report(expense_summary, fig, filename='expense_report.html'):
+def create_html_report(expense_summary, fig, filename='expense_report.html',
+                       recurring_df=None):
     """
-    Create a comprehensive HTML report with both the sunburst chart and expense table.
-    
+    Create a comprehensive HTML report with sunburst, expense table, and recurring payments.
+
     Parameters:
     -----------
     expense_summary : dict
@@ -583,18 +584,39 @@ def create_html_report(expense_summary, fig, filename='expense_report.html'):
         The sunburst chart figure
     filename : str
         Output filename (default: 'expense_report.html')
-        
+    recurring_df : pandas.DataFrame, optional
+        Recurring payments table from detect_recurring_payments()
+
     Returns:
     --------
     str
         Path to the generated HTML file
     """
+    from analysis.recurring_payments import format_recurring_for_display
+
     df = create_expense_table(expense_summary)
-    
+
     # Get the chart HTML (without the full HTML wrapper)
     chart_html = fig.to_html(include_plotlyjs='cdn', div_id='sunburst-chart')
-    
-    # Create styled table HTML
+
+    table_styles = [
+        {'selector': 'th', 'props': [
+            ('background-color', '#4CAF50'),
+            ('color', 'white'),
+            ('font-weight', 'bold'),
+            ('text-align', 'left'),
+            ('padding', '10px'),
+            ('border', '1px solid #ddd')
+        ]},
+        {'selector': 'table', 'props': [
+            ('border-collapse', 'collapse'),
+            ('width', '100%'),
+            ('margin', '20px auto'),
+            ('box-shadow', '0 2px 4px rgba(0,0,0,0.1)')
+        ]}
+    ]
+
+    # Create styled expense summary table HTML
     styled_table = df.style\
         .format({'Amount': '${:,.2f}'}, na_rep='')\
         .set_properties(**{
@@ -611,26 +633,42 @@ def create_html_report(expense_summary, fig, filename='expense_report.html'):
             else ''
             for _ in x
         ], axis=1)\
-        .set_table_styles([
-            {'selector': 'th', 'props': [
-                ('background-color', '#4CAF50'),
-                ('color', 'white'),
-                ('font-weight', 'bold'),
-                ('text-align', 'left'),
-                ('padding', '10px'),
-                ('border', '1px solid #ddd')
-            ]},
-            {'selector': 'table', 'props': [
-                ('border-collapse', 'collapse'),
-                ('width', '100%'),
-                ('margin', '20px auto'),
-                ('box-shadow', '0 2px 4px rgba(0,0,0,0.1)')
-            ]}
-        ])\
+        .set_table_styles(table_styles)\
         .hide(axis='index')
-    
+
     table_html = styled_table.to_html()
-    
+
+    # Recurring payments section
+    if recurring_df is not None and not recurring_df.empty:
+        recurring_display = format_recurring_for_display(recurring_df).copy()
+        amount_col = 'Recurring Amount'
+        if amount_col in recurring_display.columns:
+            recurring_display[amount_col] = recurring_display[amount_col].apply(
+                lambda x: f"${float(x):,.2f}" if pd.notna(x) and x != '' else ''
+            )
+        for date_col in ('Start Date', 'End Date'):
+            if date_col in recurring_display.columns:
+                recurring_display[date_col] = pd.to_datetime(
+                    recurring_display[date_col], errors='coerce'
+                ).dt.strftime('%Y-%m-%d')
+
+        styled_recurring = recurring_display.style\
+            .set_properties(**{
+                'text-align': 'left',
+                'font-size': '11pt',
+                'border': '1px solid #ddd',
+                'padding': '8px'
+            })\
+            .set_table_styles(table_styles)\
+            .hide(axis='index')
+        recurring_section_body = (
+            f'<div class="table-container">{styled_recurring.to_html()}</div>'
+        )
+    else:
+        recurring_section_body = (
+            '<p style="color: #666;">No recurring payments detected.</p>'
+        )
+
     # Create complete HTML document
     html_content = f"""<!DOCTYPE html>
 <html lang="en">
@@ -724,6 +762,11 @@ def create_html_report(expense_summary, fig, filename='expense_report.html'):
             {table_html}
         </div>
     </div>
+
+    <div class="section">
+        <h2>🔄 Recurring Payments</h2>
+        {recurring_section_body}
+    </div>
     
     <div class="footer">
         <p>Generated on {pd.Timestamp.now().strftime('%B %d, %Y at %I:%M %p')}</p>
@@ -731,11 +774,11 @@ def create_html_report(expense_summary, fig, filename='expense_report.html'):
     </div>
 </body>
 </html>"""
-    
+
     # Write to file
     with open(filename, 'w', encoding='utf-8') as f:
         f.write(html_content)
-    
+
     return filename
 
 

@@ -37,7 +37,13 @@ from analysis.analysis_utils import (
     create_expense_table,
     display_expense_table,
     export_expense_table,
-    create_html_report)
+    create_html_report,
+)
+from analysis.recurring_payments import (
+    assign_transaction_categories,
+    detect_recurring_payments,
+    format_recurring_for_display,
+)
 from ui.category_editor import (
     ensure_category_draft,
     normalize_search_strings,
@@ -249,6 +255,69 @@ def _render_analysis_results():
         },
     )
 
+    # Recurring payments report
+    st.divider()
+    st.subheader("Recurring Payments")
+    st.write(
+        "Automatically detected recurring charges based on description, "
+        "amount, and payment cadence."
+    )
+
+    if (
+        st.session_state.get("recurring_df") is not None
+        and not st.session_state.recurring_df.empty
+    ):
+        recurring_display = format_recurring_for_display(
+            st.session_state.recurring_df
+        ).copy()
+        recurring_display["Recurring Amount"] = recurring_display[
+            "Recurring Amount"
+        ].apply(lambda x: f"${float(x):,.2f}" if pd.notna(x) else "")
+
+        st.dataframe(
+            recurring_display,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Recurring Expense Name": st.column_config.TextColumn(
+                    "Recurring Expense Name", width="large"
+                ),
+                "Recurring Amount": st.column_config.TextColumn(
+                    "Recurring Amount", width="small"
+                ),
+                "Credit Card": st.column_config.TextColumn(
+                    "Credit Card", width="medium"
+                ),
+                "Category": st.column_config.TextColumn(
+                    "Category", width="medium"
+                ),
+                "Start Date": st.column_config.DateColumn(
+                    "Start Date", width="small"
+                ),
+                "End Date": st.column_config.DateColumn(
+                    "End Date", width="small"
+                ),
+                "Frequency": st.column_config.TextColumn(
+                    "Frequency", width="small"
+                ),
+                "Active": st.column_config.TextColumn(
+                    "Active", width="small"
+                ),
+            },
+        )
+
+        csv_bytes = format_recurring_for_display(
+            st.session_state.recurring_df
+        ).to_csv(index=False).encode("utf-8")
+        st.download_button(
+            label="⬇️ Download Recurring Payments CSV",
+            data=csv_bytes,
+            file_name="recurring_payments.csv",
+            mime="text/csv",
+        )
+    else:
+        st.info("No recurring payments detected for this analysis run.")
+
     # Display ignored transactions (excluded from totals)
     st.divider()
     st.subheader("Ignored Transactions")
@@ -436,6 +505,7 @@ def _render_analysis_results():
                     st.session_state.analysis_results,
                     st.session_state.fig,
                     tmp_path,
+                    recurring_df=st.session_state.get("recurring_df"),
                 )
 
                 # Read the file content
@@ -503,6 +573,8 @@ def render_main_tab(tab1):
             st.session_state.remaining_df = None
         if 'ignored_df' not in st.session_state:
             st.session_state.ignored_df = None
+        if 'recurring_df' not in st.session_state:
+            st.session_state.recurring_df = None
 
         # Run Analysis Button
         if st.button("▶️ Run Analysis", type="primary", use_container_width=True):
@@ -536,6 +608,12 @@ def render_main_tab(tab1):
                         
                         # Step 5: Create summary table
                         summary_df = create_expense_table(summed_transactions)
+
+                        # Step 6: Detect recurring payments (with category labels)
+                        categorized_df = assign_transaction_categories(
+                            df, SEARCH_STRINGS
+                        )
+                        recurring_df = detect_recurring_payments(categorized_df)
                         
                         # Store results in session state
                         st.session_state.analysis_results = summed_transactions
@@ -543,6 +621,7 @@ def render_main_tab(tab1):
                         st.session_state.summary_df = summary_df
                         st.session_state.remaining_df = remaining_df
                         st.session_state.ignored_df = ignored_df
+                        st.session_state.recurring_df = recurring_df
                         
                         st.success("✅ Analysis completed successfully!")
                         
