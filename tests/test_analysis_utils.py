@@ -7,7 +7,11 @@ from datetime import date
 
 import pandas as pd
 
-from analysis.analysis_utils import filter_ignored_descriptions, filter_transactions_by_date
+from analysis.analysis_utils import (
+    filter_ignored_descriptions,
+    filter_transactions_by_date,
+    find_duplicate_sunburst_labels,
+)
 
 
 class FilterTransactionsByDateTests(unittest.TestCase):
@@ -164,6 +168,42 @@ class FilterIgnoredDescriptionsTests(unittest.TestCase):
         kept, ignored = filter_ignored_descriptions(df, ["PARAMOUNT+"])
         self.assertEqual(ignored["Description"].tolist(), ["PARAMOUNT+"])
         self.assertEqual(kept["Description"].tolist(), ["PARAMOUNTX"])
+
+
+class FindDuplicateSunburstLabelsTests(unittest.TestCase):
+    def test_duplicate_new_folder_labels(self):
+        expense_summary = {
+            "NEW FOLDER": {
+                "ACLU": 10.0,
+                "Immigrant Law CeST PAUL": 20.0,
+            },
+            "Travel": {
+                "NEW FOLDER": {
+                    "SPOTHERO": 5.0,
+                },
+                "UBER": 15.0,
+            },
+            "No Category": 0.0,
+        }
+        self.assertEqual(
+            find_duplicate_sunburst_labels(expense_summary),
+            ["NEW FOLDER"],
+        )
+
+    def test_unique_labels_returns_empty(self):
+        expense_summary = {
+            "Travel": {
+                "Parking": {"SPOTHERO": 5.0},
+                "UBER": 15.0,
+            },
+            "Dining": {"STARBUCKS": 8.0},
+            "No Category": 0.0,
+        }
+        self.assertEqual(find_duplicate_sunburst_labels(expense_summary), [])
+
+    def test_empty_or_non_dict_returns_empty(self):
+        self.assertEqual(find_duplicate_sunburst_labels({}), [])
+        self.assertEqual(find_duplicate_sunburst_labels(None), [])
 
 
 if __name__ == "__main__":

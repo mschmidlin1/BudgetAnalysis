@@ -33,6 +33,7 @@ from analysis.analysis_utils import (
     summarize_search_category,
     process_search_strings,
     filter_ignored_descriptions,
+    find_duplicate_sunburst_labels,
     create_sunburst_chart,
     create_expense_table,
     display_expense_table,
@@ -206,17 +207,31 @@ def _render_ignore_list_editor():
             st.rerun(scope="fragment")
 
 
+def _duplicate_labels_warning_text(duplicate_labels):
+    labels_text = ", ".join(str(label) for label in duplicate_labels)
+    return (
+        f"Sunburst chart skipped: duplicate labels {labels_text}. "
+        "Rename them in the category editor so every folder and keyword name is unique."
+    )
+
+
 @st.fragment
 def _render_analysis_results():
     """Display analysis charts/tables/exports without rebuilding editors."""
-    if st.session_state.fig is None or st.session_state.summary_df is None:
+    if st.session_state.summary_df is None:
         return
+
+    duplicate_labels = st.session_state.get("sunburst_duplicate_labels") or []
 
     st.divider()
 
-    # Display the sunburst chart
+    # Display the sunburst chart, or explain why it was skipped
     st.subheader("Expense Breakdown Visualization")
-    st.plotly_chart(st.session_state.fig, use_container_width=True)
+    if duplicate_labels:
+        st.warning(_duplicate_labels_warning_text(duplicate_labels))
+        st.caption("The chart was not drawn because Plotly requires unique category names.")
+    elif st.session_state.fig is not None:
+        st.plotly_chart(st.session_state.fig, use_container_width=True)
 
     st.divider()
 
@@ -479,50 +494,56 @@ def _render_analysis_results():
 
     with col3:
         if st.button("📥 Export Chart as HTML"):
-            html_str = st.session_state.fig.to_html()
-            st.download_button(
-                label="Download Chart HTML",
-                data=html_str,
-                file_name="expense_chart.html",
-                mime="text/html",
-            )
+            if st.session_state.fig is None:
+                st.warning("Chart export is unavailable until duplicate labels are renamed.")
+            else:
+                html_str = st.session_state.fig.to_html()
+                st.download_button(
+                    label="Download Chart HTML",
+                    data=html_str,
+                    file_name="expense_chart.html",
+                    mime="text/html",
+                )
 
     with col4:
         if st.button("📄 Export Full Report"):
-            # Create combined HTML report
-            import tempfile
-            import os
+            if st.session_state.fig is None:
+                st.warning("Full report export is unavailable until duplicate labels are renamed.")
+            else:
+                # Create combined HTML report
+                import tempfile
+                import os
 
-            # Create temporary file
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".html", delete=False, encoding="utf-8"
-            ) as tmp:
-                tmp_path = tmp.name
+                # Create temporary file
+                with tempfile.NamedTemporaryFile(
+                    mode="w", suffix=".html", delete=False, encoding="utf-8"
+                ) as tmp:
+                    tmp_path = tmp.name
 
-            try:
-                # Generate the report
-                create_html_report(
-                    st.session_state.analysis_results,
-                    st.session_state.fig,
-                    tmp_path,
-                    recurring_df=st.session_state.get("recurring_df"),
-                )
+                try:
+                    # Generate the report
+                    create_html_report(
+                        st.session_state.analysis_results,
+                        st.session_state.fig,
+                        tmp_path,
+                        recurring_df=st.session_state.get("recurring_df"),
+                    )
 
-                # Read the file content
-                with open(tmp_path, "r", encoding="utf-8") as f:
-                    html_content = f.read()
+                    # Read the file content
+                    with open(tmp_path, "r", encoding="utf-8") as f:
+                        html_content = f.read()
 
-                # Provide download button
-                st.download_button(
-                    label="Download Full Report",
-                    data=html_content,
-                    file_name="expense_report.html",
-                    mime="text/html",
-                )
-            finally:
-                # Clean up temporary file
-                if os.path.exists(tmp_path):
-                    os.unlink(tmp_path)
+                    # Provide download button
+                    st.download_button(
+                        label="Download Full Report",
+                        data=html_content,
+                        file_name="expense_report.html",
+                        mime="text/html",
+                    )
+                finally:
+                    # Clean up temporary file
+                    if os.path.exists(tmp_path):
+                        os.unlink(tmp_path)
 
 
 def render_main_tab(tab1):
@@ -575,6 +596,8 @@ def render_main_tab(tab1):
             st.session_state.ignored_df = None
         if 'recurring_df' not in st.session_state:
             st.session_state.recurring_df = None
+        if 'sunburst_duplicate_labels' not in st.session_state:
+            st.session_state.sunburst_duplicate_labels = []
 
         # Run Analysis Button
         if st.button("▶️ Run Analysis", type="primary", use_container_width=True):
@@ -602,9 +625,19 @@ def render_main_tab(tab1):
                         
                         # Step 3: Process search strings
                         summed_transactions, remaining_df = process_search_strings(df, SEARCH_STRINGS)
-                        
-                        # Step 4: Create visualizations
-                        fig = create_sunburst_chart(summed_transactions)
+
+                        # Step 4: Create visualizations unless duplicate labels would blank the chart
+                        duplicate_labels = find_duplicate_sunburst_labels(
+                            summed_transactions
+                        )
+                        fig = None
+                        if duplicate_labels:
+                            st.toast(
+                                _duplicate_labels_warning_text(duplicate_labels),
+                                icon="⚠️",
+                            )
+                        else:
+                            fig = create_sunburst_chart(summed_transactions)
                         
                         # Step 5: Create summary table
                         summary_df = create_expense_table(summed_transactions)
@@ -622,6 +655,7 @@ def render_main_tab(tab1):
                         st.session_state.remaining_df = remaining_df
                         st.session_state.ignored_df = ignored_df
                         st.session_state.recurring_df = recurring_df
+                        st.session_state.sunburst_duplicate_labels = duplicate_labels
                         
                         st.success("✅ Analysis completed successfully!")
                         

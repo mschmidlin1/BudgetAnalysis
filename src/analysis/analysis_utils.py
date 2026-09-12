@@ -263,6 +263,43 @@ def process_search_strings(df, search_strings):
     return result, df_copy
 
 
+def find_duplicate_sunburst_labels(expense_summary):
+    """
+    Return labels that appear more than once in the nested expense tree.
+
+    Plotly sunburst requires unique names. Duplicate folder or keyword labels
+    produce a blank or broken chart.
+
+    Parameters
+    ----------
+    expense_summary : dict
+        Nested dictionary from process_search_strings().
+
+    Returns
+    -------
+    list of str
+        Duplicate labels in first-seen order. Empty if all labels are unique.
+    """
+    counts = {}
+    order = []
+
+    def walk(data):
+        if not isinstance(data, dict):
+            return
+        for key, value in data.items():
+            if key not in counts:
+                order.append(key)
+                counts[key] = 0
+            counts[key] += 1
+            if isinstance(value, dict):
+                walk(value)
+
+    if isinstance(expense_summary, dict):
+        walk(expense_summary)
+
+    return [label for label in order if counts[label] > 1]
+
+
 def create_sunburst_chart(expense_summary):
     """
     Create a sunburst chart from nested expense data with unlimited nesting levels.
